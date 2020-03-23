@@ -1,3 +1,3 @@
 # Theia
 
-An openGL graphics renderer
+An openGL graphics application.
