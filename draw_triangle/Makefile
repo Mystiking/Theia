@@ -2,8 +2,7 @@ files := $(wildcard *.cpp)
 include := ../Vector3.h
 
 all:
-	g++ render_triangle.cpp $(include) -o program  -lglut -lGLU -lGL -lglfw -lGLEW
-
+	g++ render_example.cpp $(include) -o program  -lglut -lGLU -lGL -lglfw -lGLEW
 
 example:
-	g++ render_example.cpp $(include) -o program  -lglut -lGLU -lGL -lglfw -lGLEW
+	g++ render_triangle.cpp $(include) -o program  -lglut -lGLU -lGL -lglfw -lGLEW
