@@ -6,7 +6,7 @@
 
 float fNear = 0.1f;
 float fFar = 100.0f;
-float fFov = 45.0f;
+float fFov = 90.0f;
 float fAspectRatio = (float)SCREENWIDTH / (float)SCREENHEIGHT;
 float fFovrad = 1.0f / tanf(fFov * 0.5f / 180.0f * 3.14159f);
 
