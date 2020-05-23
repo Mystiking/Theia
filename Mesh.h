@@ -4,12 +4,15 @@
 #include "Triangle.h"
 
 class Mesh {
-    private:
-        std::vector<Triangle> tris;
     public:
+        std::vector<Triangle> tris;
+        std::vector<Triangle> normals;
+
         Mesh(std::vector<Triangle> triangles) {
             tris = triangles;
         }
+
+        Mesh() { }
 
         float area() {
             float a = 0.0f;
@@ -20,4 +23,8 @@ class Mesh {
         }
 
         friend class Triangle;
+
+        std::vector<Triangle> get_triangles() {
+            return tris;
+        }
 };
