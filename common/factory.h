@@ -6,15 +6,17 @@ using namespace glm;
 
 #ifndef MESHINCLUDE
 #define MESHINCLUDE
-#include "../Mesh.h"
+#include "mesh.h"
 #endif
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <iostream>
 #include <map>
+#include <algorithm>
 
-Mesh create_cube_mesh(float width, float height, float depth, glm::vec3 center) {
+Mesh
+create_cube_mesh(float width, float height, float depth, glm::vec3 center) {
     float x = width / 2.0f;
     float y = height / 2.0f;
     float z = depth / 2.0f;
@@ -34,7 +36,7 @@ Mesh create_cube_mesh(float width, float height, float depth, glm::vec3 center) 
         vertices[i] += center;
     }
 
-    std::vector<unsigned short> faces = {
+    std::vector<unsigned int> faces = {
         3, 1, 0,
         3, 2, 1,
         4, 2, 3,
@@ -78,11 +80,14 @@ Mesh create_cube_mesh(float width, float height, float depth, glm::vec3 center) 
     Mesh mesh;
     mesh.tris = tris;
     mesh.normals = tri_normals;
+    mesh.indices = faces;
+    mesh.vertices = vertices;
     return mesh;
 }
 
 
-Mesh create_sphere_mesh(glm::vec3 center, float radius, unsigned short refine = 1) {
+Mesh
+create_sphere_mesh(glm::vec3 center, float radius, unsigned short refine = 1) {
     float t = (1.0f + sqrt(5.0f)) / 2.0f; // The golden ratio
 
     std::vector<glm::vec3> vertices = {
@@ -106,7 +111,7 @@ Mesh create_sphere_mesh(glm::vec3 center, float radius, unsigned short refine = 
         vertices[i] += center;
     }
 
-    std::vector<unsigned short> faces = {
+    std::vector<unsigned int> faces = {
         0, 11, 5,
         0, 5, 1,
         0, 1, 7,
@@ -130,7 +135,7 @@ Mesh create_sphere_mesh(glm::vec3 center, float radius, unsigned short refine = 
     };
 
     for (int i = 0; i < refine; i++) {
-        std::vector<unsigned short> faces_refined;
+        std::vector<unsigned int> faces_refined;
         std::vector<glm::vec3> vertices_refined;
 
         glm::vec3 v0, v1, v2, v3, v4, v5;
@@ -217,6 +222,37 @@ Mesh create_sphere_mesh(glm::vec3 center, float radius, unsigned short refine = 
     Mesh mesh;
     mesh.tris = tris;
     mesh.normals = tri_normals;
+    mesh.indices = faces;
+    mesh.vertices = vertices;
     std::cout << "meshing done\n";
     return mesh;
+}
+
+std::pair<std::vector<unsigned int>, std::vector<glm::vec3>>
+compute_indices_and_vertices(std::vector<Mesh> meshes, unsigned int index_count) {
+    std::vector<unsigned int> indices;
+    std::vector<glm::vec3> vertices;
+
+    for (int mi = 0; mi < meshes.size(); mi++) {
+        for (int t = 0; t < meshes[mi].tris.size(); t++) {
+            for (int i = 0; i < 3; i++) {
+                glm::vec3 v = meshes[mi].tris[t].p[i];
+                int vi;
+                for (vi = 0; vi < vertices.size(); vi++) {
+                    if (vertices[vi] == v) {
+                        break;
+                    }
+                }
+                std::cout << "vi: " << vi << "\n";
+                indices.push_back(vi);
+                if (vi == vertices.size()) {
+                    vertices.push_back(v);
+                }
+            }
+        }
+    }
+    std::cout << "vertices.size() = " << vertices.size() << "\n";
+    std::cout << "indices.size() = " << indices.size() << "\n";
+
+    return std::pair<std::vector<unsigned int>, std::vector<glm::vec3>>(indices, vertices);
 }

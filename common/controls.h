@@ -20,7 +20,7 @@ using namespace glm;
 // Mouse x and y position
 double mouse_xpos, mouse_ypos, mouse_scroll_dx, mouse_scroll_dy;
 // Initial position of the camera
-glm::vec3 initial_position = glm::vec3(0.0f, 0.0f, 25.0f);
+glm::vec3 initial_position = glm::vec3(0.0f, 0.0f, 5.0f);
 // Position of the camera
 glm::vec3 position = initial_position;
 // Horizontal angle of the camera (towards -Z)
@@ -39,7 +39,7 @@ float aspect_ratio = (float)SCREENWIDTH / (float)SCREENHEIGHT;
 // Speed of the camera
 float speed = 10.0f;
 // Mouse speed
-float mouse_speed = 0.005f;
+float mouse_speed = 0.05f;
 
 float delta_time, current_time;
 float last_time = float(glfwGetTime());
@@ -64,6 +64,9 @@ glm::mat4 model = glm::mat4(1.0f);
 
 // The Model * View * Projection matrix
 glm::mat4 mvp = projection * view * model;
+
+// Used for normal mapping
+glm::mat3 mv3x3 = glm::mat3(view * model);
 
 void scroll_callback(GLFWwindow *window, double dx, double dy) {
     mouse_scroll_dx = dx;
@@ -124,6 +127,8 @@ int updateCamera(GLFWwindow *window) {
     projection = glm::perspective(glm::radians(fov), aspect_ratio, near, far);
     view = glm::lookAt(position, position+direction, up);
     mvp = projection * view * model;
+
+    mv3x3 = glm::mat3(view * model);
 
     return 0;
 }
