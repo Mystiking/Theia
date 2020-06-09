@@ -22,7 +22,7 @@ using namespace glm;
 
 
 int main() {
-    //glewExperimental = true;
+    glewExperimental = true;
     if (!glfwInit()) {
         fprintf(stderr, "Failed to initialise Game Window\n");
         return -1;
