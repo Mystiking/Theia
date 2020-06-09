@@ -78,7 +78,7 @@ int main() {
 
 
     // Create and compile GLSL program which will take care of shadow mapping and rendering
-    GLuint programID = LoadShaders( "shaders/diablo.vs", "shaders/diablo.fs");
+    GLuint programID = LoadShaders( "shaders/demo.vs", "shaders/demo.fs");
 
     // Create and compile GLSL program which will render the rendered texture on the screen
     GLuint quad_programID = LoadShaders("shaders/passthrough.vs", "shaders/passthrough.fs");
