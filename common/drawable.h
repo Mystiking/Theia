@@ -7,6 +7,7 @@
 #ifndef GLMINCLUDE
 #define GLMINCLUDE
 #include <glm/glm.hpp>
+#include "glm/gtc/matrix_transform.hpp"
 using namespace glm;
 #endif
 // Common includes
@@ -17,88 +18,90 @@ using namespace glm;
 
 class Drawable {
     public:
+
+        // The quad's FBO. Used only for visualizing the shadowmap.
+        GLfloat g_quad_vertex_buffer_data[6*3] = {
+            -1.0f, -1.0f, 0.0f,
+            1.0f, -1.0f, 0.0f,
+            -1.0f,  1.0f, 0.0f,
+            -1.0f,  1.0f, 0.0f,
+            1.0f, -1.0f, 0.0f,
+            1.0f,  1.0f, 0.0f,
+        };
+
         std::vector<unsigned short> indices;
         std::vector<glm::vec3> vertices;
         std::vector<glm::vec2> uvs;
         std::vector<glm::vec3> normals;
         std::vector<glm::vec3> colors;
-        std::vector<glm::vec3> tangents;
-        std::vector<glm::vec3> bitangents;
 
         bool has_texture;
-        bool has_normal_texture;
         bool buffers_bound;
 
-        GLuint shader_id, light_id, MVP_id, MV3x3_id, M_id, V_id, P_id, texture_id,
-               normal_texture_id;
-        GLuint vertexbuffer, uvbuffer, elementbuffer, normalbuffer, tangentbuffer, bitangentbuffer,
-               colorbuffer;
-        GLuint texture, normal_texture;
+        GLuint programID, quadProgramID;
+        GLuint viewID, modelID, mvpID, lightID;
+        GLuint vertexbuffer, uvbuffer, elementbuffer, normalbuffer, colorbuffer, quad_vertexbuffer;
+        GLuint texture, renderTexture;
+        GLuint textureSamplerID, quadTextureSamplerID;
 
         glm::mat4 model_matrix;
 
         Drawable(glm::mat4 model) {
             buffers_bound = false;
             has_texture = false;
-            has_normal_texture = false;
-
             model_matrix = model;
         }
 
         void create(
             const char *objpath,
             const char *texturepath,
-            const char *normaltexturepath,
-            GLuint program,
-            GLuint LightID,
-            GLuint MVPID,
-            GLuint MID,
-            GLuint VID,
-            GLuint PID,
-            GLuint MV3x3ID,
-            GLuint textureID,
-            GLuint normalTextureID
+            // GLSL program ids
+            GLuint program_id,
+            GLuint quad_program_id,
+            // GLSL uniform ids
+            GLuint view_id,
+            GLuint model_id,
+            GLuint mvp_id,
+            GLuint light_id,
+            // Render texture id
+            GLuint render_texture,
+            // Texture sample ids
+            GLuint texture_sampler_id,
+            GLuint quad_texture_sampler_id
         ){
             std::vector<glm::vec3> _vertices;
             std::vector<glm::vec2> _uvs;
             std::vector<glm::vec3> _normals;
             // Get vertices, uvs and normals
             loadOBJ(objpath, _vertices, _uvs, _normals);
-            // Get tangents and bitangents
-            std::vector<glm::vec3> _tangents;
-            std::vector<glm::vec3> _bitangents;
-            computeTangentBasis(_vertices, _uvs, _normals, _tangents, _bitangents);
             // Set all buffers
-            indexVBO_TBN(_vertices, _uvs, _normals, _tangents, _bitangents, indices,
-                          vertices, uvs, normals, tangents, bitangents);
+            indexVBO(_vertices, _uvs, _normals, indices, vertices, uvs, normals);
 
-            // Create textures
+            // Create texture
             texture = load_texture(texturepath, 1);
-            normal_texture = load_texture(normaltexturepath, 1);
-
+            renderTexture = render_texture;
             has_texture = true;
-            has_normal_texture = true;
 
-            shader_id = program;
-            light_id = LightID;
-            MVP_id = MVPID;
-            M_id = MID;
-            V_id = VID;
-            P_id = PID;
-            MV3x3_id = MV3x3ID;
-            texture_id = textureID;
-            normal_texture_id = normalTextureID;
+            // Setting GLSL program ids
+            programID = program_id;
+            quadProgramID = quad_program_id;
+            // Setting uniform ids
+            viewID = view_id;
+            modelID = model_id;
+            mvpID = mvp_id;
+            lightID = light_id;
+            // Setting texture sampling ids
+            textureSamplerID = texture_sampler_id;
+            quadTextureSamplerID = quad_texture_sampler_id;
         }
 
         void clean_up() {
             glDeleteBuffers(1, &vertexbuffer);
             glDeleteBuffers(1, &uvbuffer);
             glDeleteBuffers(1, &normalbuffer);
-            glDeleteBuffers(1, &tangentbuffer);
-            glDeleteBuffers(1, &bitangentbuffer);
             glDeleteBuffers(1, &elementbuffer);
             glDeleteTextures(1, &texture);
-            glDeleteTextures(1, &normal_texture);
+            glDeleteTextures(1, &renderTexture);
         }
 
         void bind_buffers() {
@@ -128,43 +131,34 @@ class Drawable {
             glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, elementbuffer);
             glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned short), &indices[0] , GL_STATIC_DRAW);
 
-            glGenBuffers(1, &tangentbuffer);
-            glBindBuffer(GL_ARRAY_BUFFER, tangentbuffer);
-            glBufferData(GL_ARRAY_BUFFER, tangents.size() * sizeof(glm::vec3), &tangents[0], GL_STATIC_DRAW);
-
-            glGenBuffers(1, &bitangentbuffer);
-            glBindBuffer(GL_ARRAY_BUFFER, bitangentbuffer);
-            glBufferData(GL_ARRAY_BUFFER, bitangents.size() * sizeof(glm::vec3), &bitangents[0], GL_STATIC_DRAW);
+            glGenBuffers(1, &quad_vertexbuffer);
+            glBindBuffer(GL_ARRAY_BUFFER, quad_vertexbuffer);
+            glBufferData(GL_ARRAY_BUFFER, sizeof(g_quad_vertex_buffer_data), g_quad_vertex_buffer_data, GL_STATIC_DRAW);
 
             buffers_bound = true;
-
         }
 
-        void draw(glm::mat4 view, glm::mat4 projection, glm::vec3 light) {
-		    glUseProgram(shader_id);
+        void draw(glm::mat4 view,
+                  glm::mat4 projection,
+                  glm::vec3 light
+            ) {
+
+            glUseProgram(programID);
 
             // Compute projection matrices
             glm::mat4 drawable_mvp = projection * view * model_matrix;
-            glm::mat3 drawable_mv3x3 = glm::mat3(view * model_matrix);
-            // Send these matrices to the GPU
 
-            glUniformMatrix4fv(MVP_id, 1, GL_FALSE, &drawable_mvp[0][0]);
-            glUniformMatrix4fv(M_id, 1, GL_FALSE, &model_matrix[0][0]);
-            glUniformMatrix4fv(V_id, 1, GL_FALSE, &view[0][0]);
-            glUniformMatrix4fv(P_id, 1, GL_FALSE, &projection[0][0]);
-            glUniformMatrix3fv(MV3x3_id, 1, GL_FALSE, &drawable_mv3x3[0][0]);
-            glUniform3f(light_id, light[0], light[1], light[2]);
+            // Send these matrices to the GPU
+            glUniformMatrix4fv(mvpID, 1, GL_FALSE, &drawable_mvp[0][0]);
+            glUniformMatrix4fv(modelID, 1, GL_FALSE, &model_matrix[0][0]);
+            glUniformMatrix4fv(viewID, 1, GL_FALSE, &view[0][0]);
+
+            glUniform3f(lightID, light.x, light.y, light.z);
 
             if (has_texture) {
                 glActiveTexture(GL_TEXTURE0);
                 glBindTexture(GL_TEXTURE_2D, texture);
-                glUniform1i(texture_id, 0);
-            }
-
-            if (has_normal_texture) {
-                glActiveTexture(GL_TEXTURE1);
-                glBindTexture(GL_TEXTURE_2D, normal_texture);
-                glUniform1i(normal_texture_id, 1);
+                glUniform1i(textureSamplerID, 0);
             }
 
             // 1rst attribute: vertex positions
@@ -217,30 +211,6 @@ class Drawable {
                 (void*)0                          // array buffer offset
             );
 
-            // 4th attribute buffer : tangents
-            glEnableVertexAttribArray(3);
-            glBindBuffer(GL_ARRAY_BUFFER, tangentbuffer);
-            glVertexAttribPointer(
-                3,                                // attribute
-                3,                                // size
-                GL_FLOAT,                         // type
-                GL_FALSE,                         // normalized?
-                0,                                // stride
-                (void*)0                          // array buffer offset
-            );
-
-            // 5th attribute buffer : bitangents
-            glEnableVertexAttribArray(4);
-            glBindBuffer(GL_ARRAY_BUFFER, bitangentbuffer);
-            glVertexAttribPointer(
-                4,                                // attribute
-                3,                                // size
-                GL_FLOAT,                         // type
-                GL_FALSE,                         // normalized?
-                0,                                // stride
-                (void*)0                          // array buffer offset
-            );
-
             // Index buffer
             glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, elementbuffer);
             glDrawElements(
@@ -253,8 +223,31 @@ class Drawable {
             glDisableVertexAttribArray(0);
             glDisableVertexAttribArray(1);
             glDisableVertexAttribArray(2);
-            glDisableVertexAttribArray(3);
-            glDisableVertexAttribArray(4);
+        }
+
+        void draw_quads() {
+            glUseProgram(quadProgramID);
+
+            // Bind our texture in Texture Unit 0
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, renderTexture);
+            // Set our "renderedTexture" sampler to use Texture Unit 0
+            glUniform1i(quadTextureSamplerID, 0);
+
+            // 1rst attribute buffer : vertices
+            glEnableVertexAttribArray(0);
+            glBindBuffer(GL_ARRAY_BUFFER, quad_vertexbuffer);
+            glVertexAttribPointer(
+                0,                  // attribute 0. No particular reason for 0, but must match the layout in the shader.
+                3,                  // size
+                GL_FLOAT,           // type
+                GL_FALSE,           // normalized?
+                0,                  // stride
+                (void*)0            // array buffer offset
+            );
+
+            glDisableVertexAttribArray(0);
+
         }
 
 };
