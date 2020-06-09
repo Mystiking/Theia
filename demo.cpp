@@ -163,7 +163,6 @@ int main() {
 
             }
 
-            //tile.create("objects/tile.obj", "textures/white_tile.png",
             tile.create("objects/tile.obj", tex,
                programID, quad_programID,
                ViewMatrixID, ModelMatrixID, MatrixID, lightID,
@@ -175,26 +174,15 @@ int main() {
         }
     }
 
-    /*
-    Drawable ground(glm::mat4(1.0));
-    ground.create("objects/tile.obj", "textures/white_tile.png",
+    Drawable player_sprite(glm::translate(glm::mat4(1.0), glm::vec3(0, 0.01, 0)));
+    player_sprite.create("objects/tile.obj", "textures/Red.png",
                programID, quad_programID,
                ViewMatrixID, ModelMatrixID, MatrixID, lightID,
                renderTexture,
                TextureID, texID);
-    ground.bind_buffers();
-    */
-
-    Drawable suz(glm::translate(glm::mat4(1.0), glm::vec3(0, 1, 0)));
-    suz.create("objects/suzanne.obj", "textures/Red.png",
-               programID, quad_programID,
-               ViewMatrixID, ModelMatrixID, MatrixID, lightID,
-               renderTexture,
-               TextureID, texID);
-    suz.bind_buffers();
-
-    drawables = { suz };
-
+    player_sprite.bind_buffers();
+    player.drawable = player_sprite;
+    player.player_model_matrix = player_sprite.model_matrix;
 
     if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
         return -1;
@@ -225,16 +213,13 @@ int main() {
 		// Clear the screen
 		glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        update_camera_third_person(window);
-
-        drawables[0].model_matrix = glm::translate(suz.model_matrix, monkey_pos);
+        //update_camera_third_person(window);
+        handle_user_input(window);
 
         for (auto t : tiles) {
-            t.draw(view, projection, LightPosition);
+            t.draw(view, projection, player.light);
         }
-        for (auto d : drawables) {
-            d.draw(view, projection, LightPosition);
-        }
+        player.drawable.draw(view, projection, player.light);
 
         // Step 2) Render to the screen using the "quads" program
 		glViewport(0,0,SCREENWIDTH,SCREENHEIGHT);
@@ -242,9 +227,7 @@ int main() {
         for (auto t : tiles) {
             t.draw_quads();
         }
-        for (auto d : drawables) {
-            d.draw_quads();
-        }
+        player.drawable.draw_quads();
 		// Swap buffers
 		glfwSwapBuffers(window);
 		glfwPollEvents();
@@ -253,9 +236,11 @@ int main() {
          glfwWindowShouldClose(window) == 0);
 
 	// Cleanup VBO and shader
-    for (auto d : drawables) {
-        d.clean_up();
+    for (auto t : tiles) {
+        t.clean_up();
     }
+    player.drawable.clean_up();
+
 	glDeleteProgram(programID);
 	glDeleteVertexArrays(1, &VertexArrayID);
 

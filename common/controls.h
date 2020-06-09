@@ -5,7 +5,7 @@
 #include <algorithm>
 #include <vector>
 // Own libraries
-#include "drawable.h"
+#include "player.h"
 #include "light.h"
 // OpenGL includes
 #include <GL/glew.h>
@@ -55,8 +55,6 @@ std::vector<Drawable> tiles;
 std::vector<int> tile_ids;
 
 
-glm::vec3 monkey_pos = glm::vec3(0.0f, 0.0f, 0.0f);
-
 // Projection matrix
 glm::mat4 projection = glm::perspective(
     glm::radians(fov),
@@ -70,7 +68,7 @@ glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f);
 // View matrix
 glm::mat4 view = glm::lookAt(
     camera_position,
-    monkey_pos,
+    player.position,
     up
 );
 
@@ -83,119 +81,57 @@ glm::mat4 mvp = projection * view * model;
 // Used for normal mapping
 glm::mat3 mv3x3 = glm::mat3(view * model);
 
+// How many frames do we want between each click?
+int frames_pr_click = 10;
+int frames_since_click = frames_pr_click;
+
 void scroll_callback(GLFWwindow *window, double dx, double dy) {
     mouse_scroll_dx = dx;
     mouse_scroll_dy = dy;
 }
 
-int update_camera_first_person(GLFWwindow *window) {
-    /* Camera Orientation */
+int handle_user_input(GLFWwindow * window) {
+    // Time since last event
     current_time = float(glfwGetTime());
     delta_time = current_time - last_time;
     last_time = current_time;
-
-    // Get mouse cursor position
-    glfwGetCursorPos(window, &mouse_xpos, &mouse_ypos);
-    // Reset cursor position for the next frame
-    glfwSetCursorPos(window, SCREENXCENTER, SCREENYCENTER);
-    // Update viewing angles
-    horizontal_angle += mouse_speed * delta_time * (SCREENXCENTER - float(mouse_xpos));
-    vertical_angle += mouse_speed * delta_time * (SCREENYCENTER - float(mouse_ypos));
-
-    // "Direction" of the camera
-    glm::vec3 direction(
-        cos(vertical_angle) * sin(horizontal_angle),
-        sin(vertical_angle),
-        cos(vertical_angle) * cos(horizontal_angle)
-    );
-    // "Right" of the camera
-    glm::vec3 right(
-        sin(horizontal_angle - HALFPI),
-        0,
-        cos(horizontal_angle - HALFPI)
-    );
-    // "Up" of the camera
-    glm::vec3 up = glm::cross(right, direction);
-
-    /* Camera position update */
-    // Move forward
-    if (glfwGetKey(window, GLFW_KEY_W  ) == GLFW_PRESS) {
-        camera_position += direction * delta_time * speed;
-    }
-    // Move backward
-    if (glfwGetKey(window, GLFW_KEY_S  ) == GLFW_PRESS) {
-        camera_position -= direction * delta_time * speed;
-    }
-    // Move right
-    if (glfwGetKey(window, GLFW_KEY_D  ) == GLFW_PRESS) {
-        camera_position += right * delta_time * speed;
-    }
-    // Move left
-    if (glfwGetKey(window, GLFW_KEY_A  ) == GLFW_PRESS) {
-        camera_position -= right * delta_time * speed;
-    }
-
-    // Updating the perspective matrices
-    projection = glm::perspective(glm::radians(fov), aspect_ratio, near, far);
-    view = glm::lookAt(camera_position, camera_position+direction, up);
-    mvp = projection * view * model;
-
-    mv3x3 = glm::mat3(view * model);
-
-    return 0;
-}
-
-// A third-person camera following the player
-int update_camera_third_person(GLFWwindow *window) {
-    /* Camera Orientation */
-    current_time = float(glfwGetTime());
-    delta_time = current_time - last_time;
-    last_time = current_time;
-
-    // Get mouse cursor position
-    glfwGetCursorPos(window, &mouse_xpos, &mouse_ypos);
-    // Limit cursor within current window area
-    mouse_xpos = std::max(std::min((int)mouse_xpos, SCREENWIDTH), 0);
-    mouse_ypos = std::max(std::min((int)mouse_ypos, SCREENHEIGHT), 0);
-
-    if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
-
+    /* User click actions:
+     *  - Move to empty spot
+     *  - Attack enemy at this spot
+     *  - Pick-up item at this spot
+    */
+    if ((glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) && (frames_since_click >= frames_pr_click)) {
+        /*  --Get world location of mouse click--
+         *  Get the world coordinates of the mouse click at the near and far plane.
+         *  These coordinates are then used to define a ray, and the actual world position of the
+         *  cursor is then the intersection between the ground plane and this ray.
+         * */
+        glfwGetCursorPos(window, &mouse_xpos, &mouse_ypos);
+        mouse_xpos = std::max(std::min((int)mouse_xpos, SCREENWIDTH), 0);
+        mouse_ypos = SCREENHEIGHT - std::max(std::min((int)mouse_ypos, SCREENHEIGHT), 0);
+        // Windows starts at (0, 0) and is of size SCREENWIDTH x SCREENHEIGHT
         glm::vec4 view_port_data = glm::vec4(0, 0, SCREENWIDTH, SCREENHEIGHT);
-        glm::vec3 p_near = glm::vec3(mouse_xpos, SCREENHEIGHT - mouse_ypos - 1.0, 0.0);
-        glm::vec3 un_near = glm::unProject(p_near, view, projection, view_port_data);
-        glm::vec3 p_far= glm::vec3(mouse_xpos, SCREENHEIGHT - mouse_ypos - 1.0, 1.0);
-        glm::vec3 un_far = glm::unProject(p_far, view, projection, view_port_data);
-        glm::vec3 un_dir = un_far - un_near;
-        float w = - un_near.y / un_dir.y;
-        glm::vec3 un_int = un_near + un_dir * w;
-        un_int.z *= -1;
-        std::cout << "World cursor coord=(" << un_int.x << ", " << un_int.y << ", " << un_int.z << ")\n";
+        glm::vec3 cursor_near = glm::vec3(mouse_xpos, mouse_ypos, 0.0);
+        glm::vec3 cursor_far  = glm::vec3(mouse_xpos, mouse_ypos, 1.0);
+        glm::vec3 cursor_near_world = glm::unProject(cursor_near, view, projection, view_port_data);
+        glm::vec3 cursor_far_world  = glm::unProject(cursor_far, view, projection, view_port_data);
+        glm::vec3 ray_direction = cursor_far_world - cursor_near_world;
+        ray_direction = ray_direction / glm::length(ray_direction);
+        glm::vec3 cursor_world = cursor_near_world - (cursor_near_world.y / ray_direction.y) * ray_direction;
 
-        glm::vec4 pos_projected = mvp * glm::vec4(monkey_pos.x, monkey_pos.y, monkey_pos.z, 1.0);
-        float p_screenx = (pos_projected.x * 0.5 + 0.5) * SCREENWIDTH;
-        float p_screeny = (pos_projected.y * 0.5 + 0.5) * SCREENHEIGHT;
-        std::cout << "Player pos=(" << p_screenx << ", " << p_screeny << ")\n";
-        std::cout << "Mouse pos=(" << mouse_xpos << ", " << mouse_ypos << ")\n";
+        /* Move towards this location */
+        player.move(cursor_world);
+        frames_since_click = 0;
 
-        glm::vec2 mouse_dir = glm::vec2((float)mouse_xpos, (float)mouse_ypos) - glm::vec2(p_screenx, p_screeny);
-        mouse_dir /= glm::length(mouse_dir);
-        glm::vec2 rot_mouse_dir = glm::vec2(std::cos(glm::radians(-45.0f)) * mouse_dir.x -
-                                            std::sin(glm::radians(-45.0f)) * mouse_dir.y,
-                                            std::sin(glm::radians(-45.0f)) * mouse_dir.x +
-                                            std::cos(glm::radians(-45.0f)) * mouse_dir.y);
-
-        glm::vec3 pos_update = glm::vec3(rot_mouse_dir.x, 0, rot_mouse_dir.y);
-        //monkey_pos += pos_update * delta_time * speed;
-        //Lightcamera_position += pos_update * delta_time * speed;
-        camera_position = monkey_pos + initial_camera_position;
     }
+    // Count up frames since last click
+    frames_since_click++;
 
-
-    // Updating the view matrix
-    view = glm::lookAt(camera_position, monkey_pos, up);
-    mvp = projection * view * model;
-
-    mv3x3 = glm::mat3(view * model);
+    player.update(delta_time);
+    /* Update Camera Position */
+    camera_position = player.position + initial_camera_position;
+    /* Update View Matrix */
+    view = glm::lookAt(camera_position, player.position, up);
 
     return 0;
 }

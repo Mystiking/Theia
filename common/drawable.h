@@ -46,6 +46,11 @@ class Drawable {
 
         glm::mat4 model_matrix;
 
+        Drawable() {
+            buffers_bound = false;
+            has_texture = false;
+        }
+
         Drawable(glm::mat4 model) {
             buffers_bound = false;
             has_texture = false;
