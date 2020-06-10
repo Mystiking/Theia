@@ -129,7 +129,7 @@ int main() {
     for (int j = 0; j < num_cols; j++) {
         for (int i = 0; i < num_rows; i++) {
             Drawable tile(glm::translate(glm::scale(glm::mat4(1.0),
-                                                    glm::vec3(2.0, 1.0, 2.0)),
+                                                    glm::vec3(2.0f, 1.0, 2.0f)),
                                          glm::vec3(x_start + tile_width * i,
                                                    0,
                                                    y_start + tile_height * j)));
@@ -174,8 +174,8 @@ int main() {
         }
     }
 
-    Drawable player_sprite(glm::translate(glm::mat4(1.0), glm::vec3(0, 0.01, 0)));
-    player_sprite.create("objects/tile.obj", "textures/Red.png",
+    Drawable player_sprite(glm::translate(glm::mat4(1.0), glm::vec3(0, 0.5, 0)));
+    player_sprite.create("objects/suzanne.obj", "textures/Red.png",
                programID, quad_programID,
                ViewMatrixID, ModelMatrixID, MatrixID, lightID,
                renderTexture,
@@ -183,6 +183,16 @@ int main() {
     player_sprite.bind_buffers();
     player.drawable = player_sprite;
     player.player_model_matrix = player_sprite.model_matrix;
+
+    Drawable enemy_sprite(glm::translate(glm::mat4(1.0), glm::vec3(0, 0.5, 0)));
+    enemy_sprite.create("objects/suzanne.obj", "textures/Blue.png",
+               programID, quad_programID,
+               ViewMatrixID, ModelMatrixID, MatrixID, lightID,
+               renderTexture,
+               TextureID, texID);
+    enemy_sprite.bind_buffers();
+    enemy.drawable = enemy_sprite;
+    enemy.enemy_model_matrix = enemy_sprite.model_matrix;
 
     if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
         return -1;
@@ -220,6 +230,7 @@ int main() {
             t.draw(view, projection, player.light);
         }
         player.drawable.draw(view, projection, player.light);
+        enemy.drawable.draw(view, projection, player.light);
 
         // Step 2) Render to the screen using the "quads" program
 		glViewport(0,0,SCREENWIDTH,SCREENHEIGHT);
@@ -228,6 +239,7 @@ int main() {
             t.draw_quads();
         }
         player.drawable.draw_quads();
+        enemy.drawable.draw_quads();
 		// Swap buffers
 		glfwSwapBuffers(window);
 		glfwPollEvents();

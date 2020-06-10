@@ -120,7 +120,7 @@ int handle_user_input(GLFWwindow * window) {
         glm::vec3 cursor_world = cursor_near_world - (cursor_near_world.y / ray_direction.y) * ray_direction;
 
         /* Move towards this location */
-        player.move(cursor_world);
+        player.set_desired_position(cursor_world);
         frames_since_click = 0;
 
     }
@@ -128,6 +128,7 @@ int handle_user_input(GLFWwindow * window) {
     frames_since_click++;
 
     player.update(delta_time);
+    enemy.update(delta_time);
     /* Update Camera Position */
     camera_position = player.position + initial_camera_position;
     /* Update View Matrix */
