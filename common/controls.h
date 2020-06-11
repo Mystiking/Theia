@@ -7,6 +7,7 @@
 // Own libraries
 #include "player.h"
 #include "light.h"
+#include "camera.h"
 // OpenGL includes
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
@@ -16,70 +17,9 @@
 #include <glm/gtc/matrix_transform.hpp>
 using namespace glm;
 #endif
-// Constants
-#define SCREENWIDTH   800//1920//1024
-#define SCREENHEIGHT  600//1080//768
-#define SCREENXCENTER 400//960//512
-#define SCREENYCENTER 300//540//384
-#define HALFPI 1.57f
-// Mouse x and y position
-double mouse_xpos, mouse_ypos, mouse_scroll_dx, mouse_scroll_dy;
-// Initial camera position
-glm::vec3 initial_camera_position = glm::vec3(10.0f * std::cos(glm::radians(45.0f)),
-                                              10.0f,
-                                              10.0f * std::sin(glm::radians(45.0f)));
-// camera position
-glm::vec3 camera_position = initial_camera_position;
-// Horizontal angle of the camera (towards -Z)
-float horizontal_angle = 3.14f;
-// Vertical angle of the camera (towards the horizon)
-float vertical_angle = 0.0f;
-// Initial Field of View
-float initial_fov = 90.0f;
-// Field of view of the camera
-float fov = initial_fov;
-
-// Camera perspective settings
-float near = 0.1f;
-float far = 100.0f;
-float aspect_ratio = (float)SCREENWIDTH / (float)SCREENHEIGHT;
-// Speed of the camera
-float speed = 10.0f;
-// Mouse speed
-float mouse_speed = 0.05f;
 
 float delta_time, current_time;
 float last_time = float(glfwGetTime());
-
-std::vector<Drawable> tiles;
-std::vector<int> tile_ids;
-
-
-// Projection matrix
-glm::mat4 projection = glm::perspective(
-    glm::radians(fov),
-    aspect_ratio,
-    near,
-    far
-);
-
-glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f);
-
-// View matrix
-glm::mat4 view = glm::lookAt(
-    camera_position,
-    player.position,
-    up
-);
-
-// Model matrix (worldspace == model space for now)
-glm::mat4 model = glm::mat4(1.0f);
-
-// The Model * View * Projection matrix
-glm::mat4 mvp = projection * view * model;
-
-// Used for normal mapping
-glm::mat3 mv3x3 = glm::mat3(view * model);
 
 // How many frames do we want between each click?
 int frames_pr_click = 10;
@@ -90,7 +30,7 @@ void scroll_callback(GLFWwindow *window, double dx, double dy) {
     mouse_scroll_dy = dy;
 }
 
-int handle_user_input(GLFWwindow * window) {
+int handle_user_input(GLFWwindow *window, Player* player, std::vector<Enemy*> enemies) {
     // Time since last event
     current_time = float(glfwGetTime());
     delta_time = current_time - last_time;
@@ -120,19 +60,21 @@ int handle_user_input(GLFWwindow * window) {
         glm::vec3 cursor_world = cursor_near_world - (cursor_near_world.y / ray_direction.y) * ray_direction;
 
         /* Move towards this location */
-        player.set_desired_position(cursor_world);
+        player->set_desired_position(cursor_world);
         frames_since_click = 0;
 
     }
     // Count up frames since last click
     frames_since_click++;
 
-    player.update(delta_time);
-    enemy.update(delta_time);
+    player->update(delta_time);
+    for (Enemy *enemy : enemies) {
+        enemy->update(delta_time);
+    }
     /* Update Camera Position */
-    camera_position = player.position + initial_camera_position;
+    camera_position = player->position + initial_camera_position;
     /* Update View Matrix */
-    view = glm::lookAt(camera_position, player.position, up);
+    view = glm::lookAt(camera_position, player->position, up);
 
     return 0;
 }
