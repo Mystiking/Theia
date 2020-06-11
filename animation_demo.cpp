@@ -47,7 +47,10 @@ int main() {
 
     glfwSetScrollCallback(window, scroll_callback);
 
-    //glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    bool first_person = true;
+    if (first_person) {
+        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    }
     glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE);
 
     // Make sure we always draw the nearest triangles first
@@ -100,7 +103,11 @@ int main() {
             lastTime += 1.0;
         }
         // Game Logic
-        handle_user_input(window, &player, enemies);
+        if (first_person) {
+            first_person_camera(window);
+        } else {
+            handle_user_input(window, &player, enemies);
+        }
         // Draw scene
         render.draw(projection, view, LightPosition);
     }

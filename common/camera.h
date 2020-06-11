@@ -66,7 +66,3 @@ glm::mat4 model = glm::mat4(1.0f);
 
 // The Model * View * Projection matrix
 glm::mat4 mvp = projection * view * model;
-
-// Used for normal mapping
-glm::mat3 mv3x3 = glm::mat3(view * model);
-
