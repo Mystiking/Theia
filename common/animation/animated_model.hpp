@@ -5,10 +5,15 @@
 #include "glm/gtc/quaternion.hpp"
 #endif
 #include "joint.hpp"
-#include "animator.hpp"
+//#include "animator.hpp"
+#ifndef MODELINCLUDE
+#define MODELINCLUDE
 #include "../model.hpp"
+#endif
 
-class AnimatedModel : Model {
+class Animator;
+
+class AnimatedModel : public Model {
     public:
         // Skeleton
         Joint root;
@@ -24,9 +29,10 @@ class AnimatedModel : Model {
         GLuint texture;
         GLuint shader_id;
 
-        Animator animator;
+        Animator *animator;
 
-        AnimatedModel(char* obj_file, char* texture_file, GLuint shader_id, Animator animator, Joint root, int joint_count) {
+        //AnimatedModel(char* obj_file, char* texture_file, GLuint shader_id, Animator animator, Joint root, int joint_count) {
+        AnimatedModel(char* obj_file, char* texture_file, GLuint shader_id, Joint root, int joint_count, glm::vec3 position) {
             /* Set skin*/
             std::vector<glm::vec3> _vertices;
             std::vector<glm::vec2> _uvs;
@@ -42,18 +48,23 @@ class AnimatedModel : Model {
             /* Set skeleton */
             this->root = root;
             this->joint_count = joint_count;
+            this->model_matrix = glm::translate(glm::mat4(1.0f), position);
             this->root.calc_inverse_bind_tranform(glm::mat4(1.0f));
-            /* Set animator */
+        }
+
+        void set_animator(Animator *animator) {
             this->animator = animator;
         }
 
-        void update() {
-            animator.update();
+        /*
+        void update(float delta_time) {
+            animator.update(delta_time);
         }
 
         void do_animation(Animation *animation) {
             animator.do_animation(animation);
         }
+        */
 
         std::vector<glm::mat4> get_joint_transforms() {
             std::vector<glm::mat4> joint_transforms;

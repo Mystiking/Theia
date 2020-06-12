@@ -8,9 +8,12 @@
 #include "key_frame.hpp"
 
 class Animation {
-    std::vector<KeyFrame> frames;
+    public:
+        float duration; // Length in seconds
+        std::vector<KeyFrame> frames;
 
-    Animation(std::vector<KeyFrame> frames) {
-        this->frames = frames;
-    }
+        Animation(std::vector<KeyFrame> frames, float duration) {
+            this->frames = frames;
+            this->duration = duration;
+        }
 };

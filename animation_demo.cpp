@@ -50,6 +50,10 @@ int main() {
     bool first_person = true;
     if (first_person) {
         glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+        // Get mouse cursor position
+        glfwGetCursorPos(window, &mouse_xpos, &mouse_ypos);
+        // Reset cursor position for the next frame
+        glfwSetCursorPos(window, SCREENXCENTER, SCREENYCENTER);
     }
     glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE);
 
@@ -76,6 +80,7 @@ int main() {
 
     GLuint model_shader = LoadShaders( "shaders/demo.vs", "shaders/demo.fs");
 
+    /*
     std::vector<Model*> models;
     Model player_model("objects/suzanne.obj", "textures/Red.png", model_shader);
     Player player(glm::vec3(0.0f), glm::vec3(0.0f, 10.0f, 0.0f), player_model);
@@ -86,7 +91,14 @@ int main() {
 
     models.push_back(&player.player_model);
     models.push_back(&enemy.enemy_model);
+    */
 
+    std::vector<Model*> models;
+    Model stick_arm("objects/stick_arm.dae", "textures/Green.png", model_shader);
+    stick_arm.model_matrix = glm::mat4(1.0f);
+    Model ground("objects/tile.dae", "textures/checkers.png", model_shader);
+    ground.model_matrix = glm::scale(glm::mat4(1.0f), glm::vec3(100.0f, 1.0f, 100.0f));
+    models = { &ground, &stick_arm };
     Render render(window, models, "shaders/passthrough.vs", "shaders/passthrough.fs", SCREENWIDTH, SCREENHEIGHT);
     render.add_shader(model_shader);
 
@@ -106,7 +118,7 @@ int main() {
         if (first_person) {
             first_person_camera(window);
         } else {
-            handle_user_input(window, &player, enemies);
+            //handle_user_input(window, &player, enemies);
         }
         // Draw scene
         render.draw(projection, view, LightPosition);

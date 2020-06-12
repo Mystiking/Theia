@@ -45,6 +45,10 @@ class Joint {
             return this->id;
         }
 
+        std::string get_name() {
+            return this->name;
+        }
+
         std::vector<Joint> get_children() {
             return this->children;
         }
