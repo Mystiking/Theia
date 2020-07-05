@@ -10,7 +10,8 @@
 #ifndef GLMINCLUDE
 #define GLMINCLUDE
 #include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
+#include "glm/gtc/matrix_transform.hpp"
+#include "glm/gtc/quaternion.hpp"
 #endif
 #define SCREENWIDTH   800//1920//1024
 #define SCREENHEIGHT  600//1080//768
@@ -21,15 +22,19 @@
 // Mouse x and y position
 double mouse_xpos, mouse_ypos, mouse_scroll_dx, mouse_scroll_dy;
 // Initial camera position
-glm::vec3 initial_camera_position = glm::vec3(10.0f * std::cos(glm::radians(45.0f)),
-                                              10.0f,
-                                              10.0f * std::sin(glm::radians(45.0f)));
+// //Diablo style from above
+//glm::vec3 initial_camera_position = glm::vec3(10.0f * std::cos(glm::radians(45.0f)),
+//                                              10.0f,
+//                                              10.0f * std::sin(glm::radians(45.0f)));
+glm::vec3 initial_camera_position = glm::vec3(0., 10.0f, 10.);
 // camera position
 glm::vec3 camera_position = initial_camera_position;
+// What the camera should look at
+glm::vec3 look_at = glm::vec3(0.0, 0.0, 0.0);
 // Horizontal angle of the camera (towards -Z)
-float horizontal_angle = 3.14f;
+float horizontal_angle = 3.186f;
 // Vertical angle of the camera (towards the horizon)
-float vertical_angle = 0.0f;
+float vertical_angle = -0.692f;
 // Initial Field of View
 float initial_fov = 90.0f;
 // Field of view of the camera
@@ -57,7 +62,7 @@ glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f);
 // View matrix
 glm::mat4 view = glm::lookAt(
     camera_position,
-    glm::vec3(0.0f),
+    look_at,
     up
 );
 

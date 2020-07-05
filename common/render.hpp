@@ -9,7 +9,7 @@
 #define GLMINCLUDE
 #include <glm/glm.hpp>
 #include "glm/gtc/matrix_transform.hpp"
-using namespace glm;
+#include "glm/gtc/quaternion.hpp"
 #endif
 #ifndef MODELINCLUDE
 #define MODELINCLUDE
@@ -27,7 +27,7 @@ class Render {
 
         GLuint VertexArrayID;
         GLuint framebuffer = 0;
-        GLuint vertexbuffer, uvbuffer, elementbuffer, normalbuffer, quad_vertexbuffer;
+        GLuint vertexbuffer, uvbuffer, elementbuffer, normalbuffer, quad_vertexbuffer, jointidbuffer, skinningbuffer;
 
         GLuint renderTexture;
 
@@ -139,6 +139,32 @@ class Render {
             glBufferData(GL_ELEMENT_ARRAY_BUFFER, this->models[model_id]->indices.size() * sizeof(unsigned short), &this->models[model_id]->indices[0] , GL_STATIC_DRAW);
         }
 
+        void init_animated(int model_id) {
+            glGenBuffers(1, &this->vertexbuffer);
+            glBindBuffer(GL_ARRAY_BUFFER, this->vertexbuffer);
+            glBufferData(GL_ARRAY_BUFFER, this->models[model_id]->vertices.size() * sizeof(glm::vec3), &this->models[model_id]->vertices[0], GL_STATIC_DRAW);
+
+            glGenBuffers(1, &this->uvbuffer);
+            glBindBuffer(GL_ARRAY_BUFFER, this->uvbuffer);
+            glBufferData(GL_ARRAY_BUFFER, this->models[model_id]->uvs.size() * sizeof(glm::vec2), &this->models[model_id]->uvs[0], GL_STATIC_DRAW);
+
+            glGenBuffers(1, &this->normalbuffer);
+            glBindBuffer(GL_ARRAY_BUFFER, this->normalbuffer);
+            glBufferData(GL_ARRAY_BUFFER, this->models[model_id]->normals.size() * sizeof(glm::vec3), &this->models[model_id]->normals[0], GL_STATIC_DRAW);
+
+            glGenBuffers(1, &this->jointidbuffer);
+            glBindBuffer(GL_ARRAY_BUFFER, this->jointidbuffer);
+            glBufferData(GL_ARRAY_BUFFER, this->models[model_id]->joint_ids.size() * sizeof(glm::ivec3), &this->models[model_id]->joint_ids[0], GL_STATIC_DRAW);
+
+            glGenBuffers(1, &this->skinningbuffer);
+            glBindBuffer(GL_ARRAY_BUFFER, this->skinningbuffer);
+            glBufferData(GL_ARRAY_BUFFER, this->models[model_id]->skinning_weights.size() * sizeof(glm::vec3), &this->models[model_id]->skinning_weights[0], GL_STATIC_DRAW);
+
+            glGenBuffers(1, &this->elementbuffer);
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->elementbuffer);
+            glBufferData(GL_ELEMENT_ARRAY_BUFFER, this->models[model_id]->indices.size() * sizeof(unsigned short), &this->models[model_id]->indices[0] , GL_STATIC_DRAW);
+        }
+
         void draw(glm::mat4 projection, glm::mat4 view, glm::vec3 light) {
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
@@ -149,7 +175,11 @@ class Render {
             glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
             // Draw everything to the frame buffer
             for (int i = 0; i < (int)this->models.size(); i++) {
-                this->draw_model(i, projection, view, light);
+                if (this->models[i]->is_animated) {
+                    this->draw_animated_model(i, projection, view, light);
+                } else {
+                    this->draw_model(i, projection, view, light);
+                }
             }
             // Draw everything to the screen
             glViewport(0,0,this->screen_width,this->screen_height);
@@ -254,6 +284,125 @@ class Render {
             glDisableVertexAttribArray(0);
             glDisableVertexAttribArray(1);
             glDisableVertexAttribArray(2);
+
+        }
+
+        void print_mat4(glm::mat4 m) {
+            for (int i = 0; i < 4; i++) {
+                for (int j = 0; j < 4; j++) {
+                    std::cout << m[i][j] << " ";
+                }
+                std::cout << "\n";
+            }
+        }
+
+        void draw_animated_model(int model_id, glm::mat4 projection, glm::mat4 view, glm::vec3 light) {
+            // Bind buffers
+            this->init_animated(model_id);
+            // Enable the correct GLSL program
+            glUseProgram(this->models[model_id]->shader_id);
+            // Get handles for transform matrices
+            GLuint mvp_matrix_id   = glGetUniformLocation(this->models[model_id]->shader_id, "MVP");
+            GLuint view_matrix_id  = glGetUniformLocation(this->models[model_id]->shader_id, "V");
+            GLuint model_matrix_id = glGetUniformLocation(this->models[model_id]->shader_id, "M");
+            // Get handle for light position
+            GLuint light_id = glGetUniformLocation(this->models[model_id]->shader_id, "LightPosition");
+            // Get handle for texture sampler
+            GLuint texture_sample_id = glGetUniformLocation(this->models[model_id]->shader_id, "TextureSampler");
+            // Get handle of joint transforms
+            GLuint joint_transforms_id = glGetUniformLocation(this->models[model_id]->shader_id, "jointTransforms");
+            // Compute projection matrix
+            glm::mat4 mvp = projection * view * this->models[model_id]->model_matrix;
+            // Sent the transformation matrices to the shader
+            glUniformMatrix4fv(mvp_matrix_id, 1, GL_FALSE, &mvp[0][0]);
+            glUniformMatrix4fv(view_matrix_id, 1, GL_FALSE, &view[0][0]);
+            glUniformMatrix4fv(model_matrix_id, 1, GL_FALSE, &this->models[model_id]->model_matrix[0][0]);
+            // Sent light position to the shader
+            glUniform3f(light_id, light.x, light.y, light.z);
+            // Sent joint transforms to shader
+            std::vector<glm::mat4> root_and_child_transform = this->models[model_id]->get_joint_transforms();
+            //print_mat4(root_and_child_transform[0]);
+            //print_mat4(root_and_child_transform[1]);
+            glUniformMatrix4fv(joint_transforms_id, this->models[model_id]->joint_count, GL_FALSE, &root_and_child_transform[0][0][0]);
+            //glUniformMatrix4fv(joint_transforms_id, this->models[model_id]->joint_count, GL_FALSE, &ts[0][0][0]);
+            // Activate appropriate texture
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, this->models[model_id]->texture);
+            glUniform1i(texture_sample_id, 0);
+
+            // 1rst attribute: vertex positions
+            glEnableVertexAttribArray(0);
+            glBindBuffer(GL_ARRAY_BUFFER, this->vertexbuffer);
+            glVertexAttribPointer(
+                0,                  // attribute
+                3,                  // size
+                GL_FLOAT,           // type
+                GL_FALSE,           // normalized?
+                0,                  // stride
+                (void*)0            // array buffer offset
+            );
+
+            // 2nd attribute buffer : UVs
+            glEnableVertexAttribArray(1);
+            glBindBuffer(GL_ARRAY_BUFFER, this->uvbuffer);
+            glVertexAttribPointer(
+                1,                                // attribute
+                2,                                // size
+                GL_FLOAT,                         // type
+                GL_FALSE,                         // normalized?
+                0,                                // stride
+                (void*)0                          // array buffer offset
+            );
+
+            // 3rd attribute buffer : normals
+            glEnableVertexAttribArray(2);
+            glBindBuffer(GL_ARRAY_BUFFER, this->normalbuffer);
+            glVertexAttribPointer(
+                2,                                // attribute
+                3,                                // size
+                GL_FLOAT,                         // type
+                GL_FALSE,                         // normalized?
+                0,                                // stride
+                (void*)0                          // array buffer offset
+            );
+
+            // 4rd attribute buffer : joint indices
+            glEnableVertexAttribArray(3);
+            glBindBuffer(GL_ARRAY_BUFFER, this->jointidbuffer);
+            glVertexAttribIPointer(
+                3,                                // attribute
+                3,                                // size
+                GL_INT,                         // type
+                0,                                // stride
+                (void*)0                          // array buffer offset
+            );
+
+            // 5th attribute buffer : Skinning weights
+            glEnableVertexAttribArray(4);
+            glBindBuffer(GL_ARRAY_BUFFER, this->skinningbuffer);
+            glVertexAttribPointer(
+                4,                                // attribute
+                3,                                // size
+                GL_FLOAT,                         // type
+                GL_FALSE,                         // normalized?
+                0,                                // stride
+                (void*)0                          // array buffer offset
+            );
+
+            // Index buffer
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->elementbuffer);
+            glDrawElements(
+                GL_TRIANGLES,      // mode
+                this->models[model_id]->indices.size(),    // count
+                GL_UNSIGNED_SHORT,   // type
+                (void*)0           // element array buffer offset
+            );
+
+            glDisableVertexAttribArray(0);
+            glDisableVertexAttribArray(1);
+            glDisableVertexAttribArray(2);
+            glDisableVertexAttribArray(3);
+            glDisableVertexAttribArray(4);
 
         }
 
