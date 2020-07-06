@@ -2,7 +2,7 @@
 #define GLMINCLUDE
 #include <glm/glm.hpp>
 #include "glm/gtc/matrix_transform.hpp"
-using namespace glm;
+#include "glm/gtc/quaternion.hpp"
 #endif
 
 #ifndef MODELINCLUDE
