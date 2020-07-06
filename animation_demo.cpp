@@ -93,7 +93,6 @@ int main() {
     GLuint model_shader = LoadShaders( "shaders/demo.vs", "shaders/demo.fs");
     GLuint animated_model_shader = LoadShaders( "shaders/animation_demo.vs", "shaders/animation_demo.fs");
 
-    /*
     std::vector<Model*> models;
     //Model player_model("objects/demo_object_centered.obj", "textures/Red.png", model_shader);
     //Model beam("objects/demo_object_centered.obj", "textures/Green.png", animated_model_shader, glm::mat4(1.0f));
@@ -116,8 +115,8 @@ int main() {
     j_0_1.add_child(j_0_2);
 
     // Keyframe 1
-    JointTransform k_1_1(glm::vec3(0.0, -2.5, 0.0), glm::quat(0.0, 0.0, 0.0, 0.0));
-    //JointTransform k_1_1(glm::vec3(0.0, -2.5, 0.0), glm::quat(0.976296, 0, 0, 0.2164396));
+    //JointTransform k_1_1(glm::vec3(0.0, -2.5, 0.0), glm::quat(0.0, 0.0, 0.0, 0.0));
+    JointTransform k_1_1(glm::vec3(0.0, -2.5, 0.0), glm::quat(0.976296, 0, 0, 0.2164396));
     JointTransform k_1_2(glm::vec3(0.0, 2.5, 0.0), glm::quat(0.976296, 0, 0, 0.2164396));
     KeyFrame k1(1.0f, {{"Bottom", k_1_1}, {"Middle", k_1_2}});
 
