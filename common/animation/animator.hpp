@@ -5,30 +5,39 @@
 #include "glm/gtc/quaternion.hpp"
 #endif
 #include <vector>
+#ifndef ANIMATIONINCLUDE
+#define ANIMATIONINCLUDE
 #include "animation.hpp"
+#endif
+#ifndef ANIMATEDMODELINCLUDE
+#define ANIMATEDMODELINCLUDE
+#include "../animated_model.hpp"
+#endif
+#ifndef JOINTINCLUDE
+#define JOINTINCLUDE
 #include "joint.hpp"
+#endif
 
 class Animator {
     public:
         Animation *current_animation;
         float animation_time = 0.0f;
 
-        Joint *joint_hierarchy;
+        AnimatedModel *model;
 
         Animator() {}
 
-        Animator(Animation *animation, Joint *root) {
+        Animator(Animation *animation, AnimatedModel *model) {
             this->current_animation = animation;
-            this->joint_hierarchy = root;
+            this->model = model;
         }
 
-        void update(float delta_time, glm::mat4 model_matrix) {
+        void update(float delta_time) {
             this->increase_animation_time(delta_time);
             std::pair<KeyFrame, KeyFrame> frames = this->get_current_and_next_frame();
             float progression = this->compute_progression(frames.first, frames.second);
             std::map<std::string, JointTransform> current_pose = this->interpolate_poses(frames.first, frames.second, progression);
-            JointTransform identity;
-            apply_pose(current_pose, this->joint_hierarchy, model_matrix, identity);
+            apply_pose(current_pose, &this->model->joint_hierarchy, this->model->model_matrix);
         }
 
         void increase_animation_time(float delta_time) {
@@ -54,9 +63,9 @@ class Animator {
 
         std::map<std::string, JointTransform> interpolate_poses(KeyFrame first, KeyFrame second, float progression) {
             std::map<std::string, JointTransform> current_pose;
-            for (std::string joint_name : extract_keys(first.joint_transforms)) {
-                JointTransform first_transform = first.joint_transforms[joint_name];
-                JointTransform second_transform = second.joint_transforms[joint_name];
+            for (std::string joint_name : extract_keys(first.pose)) {
+                JointTransform first_transform = first.pose[joint_name];
+                JointTransform second_transform = second.pose[joint_name];
 
                 JointTransform current_transform = JointTransform::interpolate(first_transform, second_transform, progression);
                 current_pose.insert({joint_name, current_transform});
@@ -72,13 +81,14 @@ class Animator {
             return retval;
         }
 
-        void apply_pose(std::map<std::string, JointTransform> pose, Joint *joint, glm::mat4 parent_transform, JointTransform parent_joint_transform) {
-            JointTransform jt = pose[joint->get_name()];
-            glm::mat4 t = parent_transform * jt.get_local_transform(parent_joint_transform.position);
+        void apply_pose(std::map<std::string, JointTransform> pose, Joint *joint, glm::mat4 parent_transform) {
+            glm::mat4 current_local_transform = pose[joint->get_name()].get_local_transform();
+            glm::mat4 current_transform = parent_transform * current_local_transform;
             for (int i = 0; i < (int)joint->children.size(); i++) {
-                apply_pose(pose, &joint->children[i], t, jt);
+                apply_pose(pose, &joint->children[i], current_transform);
             }
-            joint->set_animated_transform(t);
+            current_transform = current_transform * joint->inverse_bind_transform;
+            joint->set_animated_transform(current_transform);
         }
 
         float compute_progression(KeyFrame first, KeyFrame second) {

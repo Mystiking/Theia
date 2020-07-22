@@ -2,8 +2,11 @@
 #include <stdlib.h>
 #include <iostream>
 // OpenGL includes
+#ifndef GLINCLUDE
+#define GLINCLUDE
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
+#endif
 // Common includes
 //#include "common/texture.hpp"
 //#include "common/load_texture.h"
@@ -35,8 +38,16 @@ void print_mat4(glm::mat4 m) {
     }
 }
 
+void print_jt(JointTransform jt) {
+    print_mat4(glm::translate(glm::mat4_cast(jt.rotation), jt.position));
+}
+
 void print_vec3(glm::vec3 v) {
         std::cout << v.x << " " << v.y << " " << v.z << "\n";
+}
+
+void print_quat(glm::quat q) {
+        std::cout << q.x << " " << q.y << " " << q.z << " " << q.w << "\n";
 }
 
 int main() {
@@ -94,54 +105,69 @@ int main() {
     GLuint animated_model_shader = LoadShaders( "shaders/animation_demo.vs", "shaders/animation_demo.fs");
 
     std::vector<Model*> models;
+    std::vector<AnimatedModel*> animated_models;
+
+    //AnimatedModel *demo_object = new AnimatedModel("objects/demo_object.dae", "textures/Green.png", animated_model_shader);
+    AnimatedModel *demo_object = new AnimatedModel("objects/torso_waving.dae", "textures/Green.png", animated_model_shader);
+    //Animation *animation_0 = new Animation("objects/demo_object.dae");
+    Animation *animation_0 = new Animation("objects/torso_waving.dae");
+    Animator animator(animation_0, demo_object);
+
+    std::cout << "indices size buffer: " << demo_object->indices.size() << "\n";
+    std::cout << "vertices size buffer: " << demo_object->vertices.size() << "\n";
+    std::cout << "normals size buffer: " << demo_object->normals.size() << "\n";
+    std::cout << "uvs size buffer: " << demo_object->uvs.size() << "\n";
+    std::cout << "joint ids buffer: " << demo_object->joint_ids.size() << "\n";
+    std::cout << "skinning weights buffer: " << demo_object->skinning_weights.size() << "\n";
+    animated_models.push_back(demo_object);
+
+    /*
+    std::cout << "# joints = " << demo_object->joint_count << "\n";
+    std::cout << "(Root) index = " << demo_object->joint_hierarchy.get_id() << "\n";
+    std::cout << "(Root) name = " << demo_object->joint_hierarchy.get_name() << "\n";
+    std::cout << "(Root) bind_local_transform =\n";
+    print_mat4(demo_object->joint_hierarchy.local_bind_transform);
+    std::cout << "(Root) inverse transform =\n";
+    print_mat4(demo_object->joint_hierarchy.inverse_bind_transform);
+    std::cout << "(Child) index = " << demo_object->joint_hierarchy.children[0].get_id() << "\n";
+    std::cout << "(Child) name = " << demo_object->joint_hierarchy.children[0].get_name()<< "\n";
+    std::cout << "(Child) bind_local_transform =\n";
+    print_mat4(demo_object->joint_hierarchy.children[0].local_bind_transform);
+    std::cout << "(Child) inverse transform =\n";
+    print_mat4(demo_object->joint_hierarchy.children[0].inverse_bind_transform);
+    std::cout << "\n";
+    std::cout << "\n";
+    std::cout << "\n";
+*/
+    //Model *demo_object_static = new Model("objects/demo_object.dae", "textures/Green.png", model_shader);
+    //models.push_back(demo_object_static);
+    /*
     //Model player_model("objects/demo_object_centered.obj", "textures/Red.png", model_shader);
     //Model beam("objects/demo_object_centered.obj", "textures/Green.png", animated_model_shader, glm::mat4(1.0f));
     //Model beam2("objects/demo_object_centered.obj", "textures/Red.png", animated_model_shader, glm::mat4(1.0f));
-    Model beam("objects/demo_object_centered.dae", "textures/Green.png", animated_model_shader, glm::mat4(1.0f));
-    Model beam2("objects/demo_object_centered.dae", "textures/Red.png", animated_model_shader, glm::mat4(1.0f));
+    Model beam("objects/stick_arm.dae", "textures/Green.png", animated_model_shader, glm::mat4(1.0f));
+    //Model beam2("objects/demo_object_centered.dae", "textures/Red.png", animated_model_shader, glm::mat4(1.0f));
 
-    // Keyframe 0
-    JointTransform k_0_1(glm::vec3(0.0, -2.5, 0.0), glm::quat(0.0, 0.0, 0.0, 0.0));
-    JointTransform k_0_2(glm::vec3(0.0, 2.5, 0.0), glm::quat(0.0, 0, 0, 0.0));
-    KeyFrame k0(0.0f, {{"Bottom", k_0_1}, {"Middle", k_0_2}});
-
+    JointTransform k_0_1(glm::vec3(0.0, -5, 0.0), glm::quat(0.0, 0.0, 0.0, 0.0));
+    JointTransform k_0_2(glm::vec3(0.0, 5, 0.0), glm::quat(0.0, 0, 0, 0.0));
     glm::mat4 t_0_1 = k_0_1.get_local_transform();
     glm::mat4 t_0_2 = t_0_1 * k_0_2.get_local_transform();
 
-    Joint j_0_1(0, "Bottom", k_0_1.get_local_transform());
-    j_0_1.local_transform = k_0_1;
-    Joint j_0_2(1, "Middle", k_0_2.get_local_transform());
-    j_0_2.local_transform = k_0_2;
-    j_0_1.add_child(j_0_2);
 
-    // Keyframe 1
-    //JointTransform k_1_1(glm::vec3(0.0, -2.5, 0.0), glm::quat(0.0, 0.0, 0.0, 0.0));
-    JointTransform k_1_1(glm::vec3(0.0, -2.5, 0.0), glm::quat(0.976296, 0, 0, 0.2164396));
-    JointTransform k_1_2(glm::vec3(0.0, 2.5, 0.0), glm::quat(0.976296, 0, 0, 0.2164396));
-    KeyFrame k1(1.0f, {{"Bottom", k_1_1}, {"Middle", k_1_2}});
+    std::vector<Animation> animations;
+    load_animation_data("objects/stick_arm.dae", animations, beam.joint_hierarchy);
 
-    // Keyframe 2
-    JointTransform k_2_1(glm::vec3(0.0, -2.5, 0.0), glm::quat(0.0, 0.0, 0.0, 0.0));
-    JointTransform k_2_2(glm::vec3(0.0, 2.5, 0.0), glm::quat(0.0, 0, 0, 0.0));
-    KeyFrame k2(2.0f, {{"Bottom", k_2_1}, {"Middle", k_2_2}});
+    //Animation animation0({k0, k1, k2}, 2.0f);
+    Animation animation0 = animations[0];
+    //animation0.frames = {animation0.frames[0]};
 
-    Animation animation0({k0, k1, k2}, 2.0f);
+    glm::vec3 pos_a_f_0 = animations[0].frames[0].joint_transforms["Middle"].position;
+    glm::quat rot_a_f_0 = animations[0].frames[0].joint_transforms["Middle"].rotation;
 
-    Animator animator0(&animation0, &j_0_1);
-
-    glm::mat4 t_1_1 = k_1_1.get_local_transform();
-    glm::mat4 t_1_2 = t_1_1 * k_1_2.get_local_transform();
-
-    Joint j_1_1(0, "Bottom", k_1_1.get_local_transform());
-    Joint j_1_2(1, "Middle", k_1_2.get_local_transform());
-    j_1_1.add_child(j_1_2);
-
-    //JointTransform global_model_jt(glm::vec3(0.0, -2.5, 0), glm::quat(0.7071068, 0, 0, -0.7071068));
-    JointTransform global_model_jt(glm::vec3(0.0, -2.5, 0), glm::quat(0., 0, 0, -0.));
-    JointTransform jt0_0(glm::vec3(0, -2.5, 0), glm::quat(0., 0, 0, -0.));
-    JointTransform jt1_0(glm::vec3(0, 0.0, 0), glm::quat(0.976296, 0, 0, 0.2164396));
-    JointTransform jt2_0(glm::vec3(0, 2.5, 0), glm::quat(0., 0, 0, 0));
-
+    std::cout << "Frame 0 rotation: ";
+    pq(rot_a_f_0);
+    std::cout << ", position: ";
+    pv3(pos_a_f_0);
 
     glm::mat4 center0(1.0);
     center0 = glm::translate(center0, glm::vec3(0, -2.5, 0));
@@ -149,24 +175,6 @@ int main() {
     center1 = glm::translate(center1, glm::vec3(0, 0.0, 0));
     glm::mat4 center2(1.0);
     center2 = glm::translate(center2, glm::vec3(0, 2.5, 0));
-/*
-    glm::mat4 t0 =
-     glm::translate(glm::mat4(1.0), glm::vec3(global_model_jt.position)) *
-     glm::mat4_cast(global_model_jt.rotation) *
-     glm::translate(glm::mat4(1.0), glm::vec3(-global_model_jt.position));
-
-    glm::mat4 t1 =
-     t0 *
-     glm::translate(glm::mat4(1.0), glm::vec3(jt0_0.position)) *
-     glm::mat4_cast(jt0_0.rotation) *
-     glm::translate(glm::mat4(1.0), glm::vec3(-jt0_0.position));
-
-    glm::mat4 t2 =
-     t1 *
-     glm::translate(glm::mat4(1.0), glm::vec3(jt1_0.position)) *
-     glm::mat4_cast(jt1_0.rotation) *
-     glm::translate(glm::mat4(1.0), glm::vec3(-jt1_0.position));
-*/
 
     // Keyframe 1
     Model joint_0_0_model("objects/ball.obj", "textures/Gray.png", model_shader, center0);
@@ -189,27 +197,28 @@ int main() {
     //beam.joint_ids = joint_ids;
     //beam.skinning_weights = skinning_weights;
     beam.is_animated = true;
-    beam.local_joint_transforms = { j_0_1.get_animated_transform(), j_0_1.children[0].get_animated_transform()};
-    beam.joint_count = 2;
+    //beam.local_joint_transforms = { j_0_1.get_animated_transform(), j_0_1.children[0].get_animated_transform()};
+    //beam.joint_count = 2;
 
     //beam2.joint_ids = joint_ids;
     //beam2.skinning_weights = skinning_weights;
-    beam2.is_animated = true;
-    beam2.local_joint_transforms = { j_1_1.local_bind_transform, j_1_1.children[0].local_bind_transform};
-    beam2.joint_count = 2;
+    //beam2.is_animated = true;
+    //beam2.local_joint_transforms = { j_1_1.local_bind_transform, j_1_1.children[0].local_bind_transform};
+    //beam2.joint_count = 2;
 
+    Animator animator0(&animation0, &beam);
     // Visualize the joints
-    //models.push_back(&joint_0_0_model);
-    //models.push_back(&joint_1_0_model);
-    //models.push_back(&joint_2_0_model);
+    models.push_back(&joint_0_0_model);
+    models.push_back(&joint_1_0_model);
+    models.push_back(&joint_2_0_model);
     //models.push_back(&mesh_vertex);
 
     //models.push_back(&joint_0_1_model);
     //models.push_back(&joint_1_1_model);
     models.push_back(&beam);
     //models.push_back(&beam2);
-
-    Render render(window, models, "shaders/passthrough.vs", "shaders/passthrough.fs", SCREENWIDTH, SCREENHEIGHT);
+    */
+    Render render(window, models, animated_models, "shaders/passthrough.vs", "shaders/passthrough.fs", SCREENWIDTH, SCREENHEIGHT);
 
     double lastTime = glfwGetTime();
     int nbFrames = 0;
@@ -223,14 +232,13 @@ int main() {
             nbFrames = 0;
             lastTime += 1.0;
         }
-        animator0.update(delta_time, glm::mat4(1.0f));
-        beam.local_joint_transforms = { j_0_1.get_animated_transform(), j_0_1.children[0].get_animated_transform()};
         // Game Logic
         if (first_person) {
             first_person_camera(window);
         } else {
             //handle_user_input(window, &player, enemies);
         }
+        animator.update(delta_time);
         // Draw scene
         render.draw(projection, view, LightPosition);
     }

@@ -24,15 +24,8 @@ class JointTransform {
         }
 
         glm::mat4 get_local_transform() {
-            glm::mat4 local_transform = glm::translate(glm::mat4(1.0f), this->position) * glm::mat4_cast(this->rotation) * glm::translate(glm::mat4(1.0f), -this->position);
-            return local_transform;
-        }
-
-        glm::mat4 get_local_transform(glm::vec3 parent_position) {
-            glm::mat4 local_transform = glm::translate(glm::mat4(1.0f), parent_position + this->position) *
-                                        glm::mat4_cast(this->rotation) *
-                                        glm::translate(glm::mat4(1.0f), -(parent_position + this->position));
-            return local_transform;
+            glm::mat4 local_transform = glm::translate(glm::mat4(1.0f), this->position);
+            return local_transform * glm::mat4_cast(rotation);
         }
 
         static JointTransform interpolate(JointTransform frame_a, JointTransform frame_b, float progression) {

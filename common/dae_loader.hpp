@@ -13,14 +13,29 @@
 #include <sstream>
 #include <map>
 #include <iostream>
-#include "animation.hpp"
+#ifndef JOINTTRANSFORMINCLUDE
+#define JOINTTRANSFORMINCLUDE
+#include "animation/joint_transform.hpp"
+#endif
+#ifndef JOINTINCLUDE
+#define JOINTINCLUDE
+#include "animation/joint.hpp"
+#endif
+#ifndef KEYFRAMEINCLUDE
+#define KEYFRAMEINCLUDE
+#include "animation/key_frame.hpp"
+#endif
+#ifndef ANIMATIONINCLUDE
+#define ANIMATIONINCLUDE
+#include "animation/animation.hpp"
+#endif
 
 void load_dae() {
 
 }
 
 void load_mesh_data(
-    const char* file_name,
+    const char * file_name,
     std::vector<glm::vec3> & out_vertices,
     std::vector<glm::vec2> & out_uvs,
     std::vector<glm::vec3> & out_normals
@@ -128,7 +143,7 @@ void load_mesh_data(
 }
 
 void load_skinning_data(
-    const char* file_name,
+    const char * file_name,
     std::vector<glm::ivec3> & out_joint_ids,
     std::vector<glm::vec3> & out_skinning_weights
 ){
@@ -247,8 +262,236 @@ void load_skinning_data(
 
 }
 
-void load_skeleton_data(
+void pm4(glm::mat4 m) {
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 4; j++) {
+            std::cout << m[i][j] << " ";
+        }
+        std::cout << "\n";
+    }
+}
 
+void pv3(glm::vec3 v)   {
+    std::cout << v[0] << " " << v[1] << " " << v[2] << "\n";
+}
+
+void pv4(glm::vec4 v)   {
+    std::cout << v[0] << " " << v[1] << " " << v[2] << " " << v[3] << "\n";
+}
+
+void pq(glm::quat q)   {
+    std::cout << q[0] << " " << q[1] << " " << q[2] << " " << q[3] << "\n";
+}
+
+Joint create_joint_hierarchy(
+    rapidxml::xml_node<> * node,
+    std::map<std::string, int> joint_map,
+    glm::mat4 parent_transform
 ) {
+    std::string name = node->first_attribute("name")->value();
+    int id = joint_map[name];
+    glm::mat4 transform;
 
+    // Load in transform
+    char *transform_data = node->first_node("matrix")->value();
+    std::istringstream transform_data_stream(transform_data);
+    for (int i = 0; i < 4; i++) {
+        glm::vec4 row;
+        for (int j = 0; j < 4; j++) {
+            transform_data_stream >> transform_data;
+            row[j] = std::stof(transform_data);
+        }
+        transform[i] = row;//glm::vec4(row[0], -row[2], row[1], row[3]);
+    }
+    transform = glm::transpose(transform);
+    transform[3] = glm::vec4(transform[3][0], transform[3][2], -transform[3][1], transform[3][3]);
+
+    glm::mat4 bind_transform = parent_transform * transform;
+    std::cout << "Bind transform:\n";
+    pm4(bind_transform);
+    std::cout << "transform:\n";
+    pm4(transform);
+    std::cout << "parent transform:\n";
+    pm4(parent_transform);
+
+    Joint joint(id, name, bind_transform);
+
+    //glm::vec4 joint_bind_position = bind_transform[3] - parent_transform[3];
+    glm::vec3 scaled_position = glm::mat3(parent_transform) * glm::vec3(transform[3][0], transform[3][1], transform[3][2]);
+    glm::vec4 joint_bind_position = parent_transform[3] + glm::vec4(scaled_position[0], scaled_position[1], scaled_position[2], 1.0);//glm::vec4(scaled_position[0], scaled_position[1], scaled_position[2], 1.0) + parent_transform[3];
+    glm::quat joint_bind_rotation = glm::quat_cast(glm::mat3(transform));
+    joint.local_transform = JointTransform(glm::vec3(joint_bind_position[0], joint_bind_position[1], joint_bind_position[2]), joint_bind_rotation);
+    joint.joint_bind_position = joint_bind_position;
+    joint.joint_bind_rotation = joint_bind_rotation;
+
+    rapidxml::xml_node<>* child = node->first_node("node");
+    while (child) {
+        joint.add_child(create_joint_hierarchy(child, joint_map, bind_transform));
+        child = child->next_sibling("node");
+    }
+
+    return joint;
+}
+
+
+void load_skeleton_data(
+    const char * file_name,
+    int & num_joints,
+    Joint & root_joint
+) {
+    std::ifstream t(file_name);
+    std::string str((std::istreambuf_iterator<char>(t)),
+                     std::istreambuf_iterator<char>());
+    char *cstr = new char[str.size() + 1];
+    strcpy(cstr, str.c_str());
+    rapidxml::xml_document<> doc;
+    doc.parse<0>(cstr);
+
+    rapidxml::xml_node<> *root = doc.first_node("COLLADA");
+    rapidxml::xml_node<> *library_controllers = root->first_node("library_controllers");
+    rapidxml::xml_node<> *controller = library_controllers->first_node("controller");
+    rapidxml::xml_node<> *skin = controller->first_node("skin");
+    rapidxml::xml_node<> *joints_array = skin->first_node("source")->first_node("Name_array");
+    std::map<std::string, int> joint_map;
+    std::map<int, std::string> joint_name_map;
+    num_joints = std::stoi(joints_array->first_attribute("count")->value());
+
+    char *joints_array_data = joints_array->value();
+    std::istringstream joints_array_stream(joints_array_data);
+    for (int i = 0; i < num_joints; i++) {
+        joints_array_stream >> joints_array_data;
+        // Get next joint name
+        joint_map.insert({std::string(joints_array_data), i});
+        joint_name_map.insert({i, std::string(joints_array_data)});
+    }
+
+    rapidxml::xml_node<> *library_visual_scenes = root->first_node("library_visual_scenes");
+    rapidxml::xml_node<> *visual_scene = library_visual_scenes->first_node("visual_scene");
+    rapidxml::xml_node<> *armature = visual_scene->first_node("node");
+
+    std::string name = armature->first_attribute("name")->value();
+    glm::mat4 transform;
+    char *transform_data = armature->first_node("matrix")->value();
+    std::istringstream transform_data_stream(transform_data);
+    for (int i = 0; i < 4; i++) {
+        glm::vec4 row;
+        for (int j = 0; j < 4; j++) {
+            transform_data_stream >> transform_data;
+            row[j] = std::stof(transform_data);
+        }
+        transform[i] = row;//glm::vec4(row[0], -row[2], row[1], row[3]);
+    }
+    transform = glm::transpose(transform);
+    transform[3] = glm::vec4(transform[3][0], transform[3][2], -transform[3][1], transform[3][3]);
+    //transform[3] = glm::vec4(0.0, 0.0, 0.0, 1.0);
+
+    rapidxml::xml_node<> *root_joint_node = armature->first_node("node");
+    root_joint = create_joint_hierarchy(root_joint_node, joint_map, transform);
+}
+
+// Only works for joints with one layer of kids
+Joint find_joint(Joint j, std::string name) {
+    if (j.get_name() == name) {
+        return j;
+    }
+
+    for (int i = 0; i < (int)j.children.size(); i++) {
+        if (j.children[i].get_name() == name) {
+            return j.children[i];
+        }
+    }
+}
+
+void load_animation_data(
+    const char * file_name,
+    std::vector<Animation> & animations,
+    Joint root_joint
+){
+    std::ifstream t(file_name);
+    std::string str((std::istreambuf_iterator<char>(t)),
+                     std::istreambuf_iterator<char>());
+    char *cstr = new char[str.size() + 1];
+    strcpy(cstr, str.c_str());
+    rapidxml::xml_document<> doc;
+    doc.parse<0>(cstr);
+
+
+    rapidxml::xml_node<> *root = doc.first_node("COLLADA");
+
+    rapidxml::xml_node<> *library_controllers = root->first_node("library_controllers");
+    rapidxml::xml_node<> *controller = library_controllers->first_node("controller");
+    rapidxml::xml_node<> *skin = controller->first_node("skin");
+    rapidxml::xml_node<> *joints_array = skin->first_node("source")->first_node("Name_array");
+    std::map<std::string, int> joint_map;
+    std::map<int, std::string> joint_name_map;
+    int num_joints = std::stoi(joints_array->first_attribute("count")->value());
+
+    char *joints_array_data = joints_array->value();
+    std::istringstream joints_array_stream(joints_array_data);
+    for (int i = 0; i < num_joints; i++) {
+        joints_array_stream >> joints_array_data;
+        // Get next joint name
+        joint_map.insert({std::string(joints_array_data), i});
+        joint_name_map.insert({i, std::string(joints_array_data)});
+    }
+
+    rapidxml::xml_node<> *library_animations = root->first_node("library_animations");
+    rapidxml::xml_node<> *armature_animation = library_animations->first_node("animation");
+    rapidxml::xml_node<> *animation_node = armature_animation->first_node("animation");
+
+    std::vector<std::vector<float>> time_stamps;
+    std::vector<std::vector<JointTransform>> joint_transforms;
+    int animation_counter = 0;
+    while(animation_node) {
+        std::vector<float> tmp_time_stamps;
+        std::vector<JointTransform> tmp_joint_transforms;
+        int num_keyframes = std::stoi( animation_node->first_node("source")->first_node("float_array")->first_attribute("count")->value() );
+        char *key_frame_time_stamp_data = animation_node->first_node("source")->first_node("float_array")->value();
+        char *key_frame_transform_data = animation_node->first_node("source")->next_sibling("source")->first_node("float_array")->value();
+
+        Joint current_joint = find_joint(root_joint, joint_name_map[animation_counter]);
+        std::cout << current_joint.get_name() << "\n";
+
+        std::istringstream key_frame_time_stamp_stream(key_frame_time_stamp_data);
+        std::istringstream key_frame_transform_stream(key_frame_transform_data);
+        for (int i = 0; i < num_keyframes; i++) {
+            key_frame_time_stamp_stream >> key_frame_time_stamp_data;
+            float time_stamp = std::stof(key_frame_time_stamp_data);
+            tmp_time_stamps.push_back(time_stamp);
+            glm::mat4 transform;
+
+            for (int j = 0; j < 4; j++) {
+                glm::vec4 row;
+                for (int k = 0; k < 4; k++) {
+                    key_frame_transform_stream >> key_frame_transform_data;
+                    row[k] = std::stof(key_frame_transform_data);
+                }
+                transform[j] = glm::vec4(row[0], -row[2], row[1], row[3]);
+            }
+            JointTransform joint_transform(current_joint.joint_bind_position + glm::vec3(transform[3]), glm::quat_cast(transform));
+            tmp_joint_transforms.push_back(joint_transform);
+        }
+        time_stamps.push_back(tmp_time_stamps);
+        joint_transforms.push_back(tmp_joint_transforms);
+        // Load next animation
+        animation_node = animation_node->next_sibling("animation");
+        animation_counter++;
+    }
+
+    // Translate joint transforms into a key frame
+    std::vector<KeyFrame> key_frames;
+    for (int i = 0; i < (int)time_stamps[0].size(); i++) {
+        std::map<std::string, JointTransform> joint_transform_map;
+        for (int j = 0; j < num_joints; j++) {
+            if (i == 20) {
+
+                std::cout << joint_name_map[j] << ":\n";
+                pv3(joint_transforms[j][i].position);
+                pq(joint_transforms[j][i].rotation);
+            }
+            joint_transform_map.insert({joint_name_map[j], joint_transforms[j][i]});
+        }
+        key_frames.push_back(KeyFrame(time_stamps[0][i], joint_transform_map));
+    }
+    animations.push_back(Animation(key_frames, time_stamps[0].back()));
 }

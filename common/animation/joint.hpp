@@ -16,7 +16,7 @@ class Joint {
         std::vector<Joint> children;
 
         glm::mat4 local_bind_transform; // The original pose of the model in relation to the parent joint
-        JointTransform local_transform;
+        glm::mat4 inverse_bind_transform; // The inverse of original pose of the joint in MODEL space (_not_ local space)
 
         Joint() {}
 
@@ -63,13 +63,8 @@ class Joint {
             return this->children;
         }
 
-        JointTransform get_local_transform() {
-            return local_transform;
-        }
-
     private:
         int id;
         std::string name;
-        glm::mat4 inverse_bind_transform; // The inverse of original pose of the joint in MODEL space (_not_ local space)
         glm::mat4 animated_transform;
 };
