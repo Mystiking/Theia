@@ -20,9 +20,13 @@ class Model {
 
         glm::mat4 model_matrix;
 
-        GLuint texture;
+        GLuint texture = 0;
         GLuint shader_id;
 
         Model() {}
+
+        Model(const char* texture_file) {
+            this->texture = load_texture(texture_file, 0);
+        }
 };
 

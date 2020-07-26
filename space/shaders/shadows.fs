@@ -9,12 +9,15 @@ in VS_OUT {
 } fs_in;
 
 uniform sampler2D shadowMap;
+uniform sampler2D diffuseTexture;
 
 uniform vec3 lightPosition;
 uniform vec3 viewPosition;
 
 uniform float nearPlane;
 uniform float farPlane;
+
+uniform int has_texture;
 
 float ShadowCalculation(vec4 fragPosLightSpace, float bias)
 {
@@ -48,13 +51,19 @@ float ShadowCalculation(vec4 fragPosLightSpace, float bias)
 
 void main()
 {   
-    vec3 color = vec3(0.6, 0.3, 0.0);//texture(diffuseTexture, fs_in.TexCoords).rgb;
+    vec3 color;
+    if (has_texture == 1) {
+        color = texture(diffuseTexture, fs_in.TexCoords).rgb;
+    } else {
+	    color = vec3(1.0, 0.41, 0.38);
+    }
     vec3 normal = normalize(fs_in.Normal);
     vec3 lightColor = vec3(0.3);
     // ambient
     vec3 ambient = 0.3 * color;
     // diffuse
-    vec3 lightDirection = normalize(lightPosition - fs_in.FragPos);
+    //vec3 lightDirection = normalize(lightPosition - fs_in.FragPos); // To shade as a point light
+    vec3 lightDirection = normalize(lightPosition); // To shade as global illumination
     float diff = max(dot(lightDirection, normal), 0.0);
     vec3 diffuse = diff * lightColor;
     // specular
@@ -68,7 +77,7 @@ void main()
     float shadowBias = max(0.05 * (1.0 - dot(normal, lightDirection)), 0.000); // Hack to cure shadow acne
     shadowBias = 0.004;
     float shadow = ShadowCalculation(fs_in.FragPosLightSpace, shadowBias);                      
-    vec3 lighting = (ambient + (1.0 - shadow) * (diffuse + specular)) * color;    
+    vec3 lighting = (ambient + (1.0 - shadow) * (diffuse )) * color;    
     
     FragColor = vec4(lighting, 1.0);
     if (shadow == 1) {

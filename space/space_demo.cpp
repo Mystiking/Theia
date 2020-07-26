@@ -103,16 +103,22 @@ int main() {
     GLuint d_shader = LoadShaders( "shaders/depthshader.vs", "shaders/depthshader.fs");
     GLuint q_shader = LoadShaders( "shaders/quad_depth_debug.vs", "shaders/quad_depth_debug.fs");
 
-    Model cube_0 = cube(2, 2, 2);
-    Model cube_1 = cube(4, 2, 4);
-    Model cube_2 = cube(2, 1, 2);
+    Model cube_0 = cube(8, 8, 8);
+    Model cube_1 = cube(8, 8, 8);
+    subdivide_cube(&cube_0, 3);
+    refine_model(&cube_1, 3);
+    unwrap(&cube_0);
+    unwrap(&cube_1);
     Model plane_ = cube(200, 1, 200);
-    cube_0.model_matrix = glm::translate(glm::mat4(1.0), glm::vec3(1.0, 0.0, 0.0));
-    cube_1.model_matrix = glm::translate(glm::mat4(1.0), glm::vec3(-5, 0.0, 0.0));
-    cube_2.model_matrix = glm::translate(glm::mat4(1.0), glm::vec3(-7, -2, 0.0));
+    GLuint texture = load_texture("textures/uvtemplate.bmp", 0);
+    //cube_0.texture = texture;
+    //cube_1.texture = texture;
+    cube_0.model_matrix = glm::translate(glm::mat4(1.0), glm::vec3(5.0, 3.0, 0.0));
+    cube_1.model_matrix = glm::translate(glm::mat4(1.0), glm::vec3(-5, 3.0, 0.0));
     plane_.model_matrix = glm::translate(glm::mat4(1.0), glm::vec3(0.0, -4.0, 0.0));
 
-    Render render(window, {&cube_0, &cube_1, &plane_, &cube_2}, d_shader, q_shader, model_shader, SCREENWIDTH, SCREENHEIGHT);
+    //Render render(window, {&cube_0, &cube_1, &plane_}, d_shader, q_shader, model_shader, SCREENWIDTH, SCREENHEIGHT);
+    Render render(window, {&cube_1, &cube_0, &plane_}, d_shader, q_shader, model_shader, SCREENWIDTH, SCREENHEIGHT);
 
     double lastTime = glfwGetTime();
     int nbFrames = 0;

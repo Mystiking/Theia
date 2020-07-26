@@ -73,7 +73,7 @@ glm::mat4 model = glm::mat4(1.0f);
 // The Model * View * Projection matrix
 glm::mat4 mvp = projection * view * model;
 
-glm::vec3 lightPosition = glm::vec3(-2, 4, -1);
+glm::vec3 lightPosition = glm::vec3(-20, 20, 0);
 
 glm::mat4 lightProjection = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, near, far);
 glm::mat4 lightView = glm::lookAt(lightPosition, glm::vec3(0.0, 0.0, 0.0), up);

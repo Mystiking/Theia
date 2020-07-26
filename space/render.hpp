@@ -133,6 +133,14 @@ class Render {
         void setModelUniforms(GLuint shader_id, uint model_id) {
             GLuint model_location = glGetUniformLocation(shader_id, "model");
             glUniformMatrix4fv(model_location, 1, GL_FALSE, &this->models[model_id]->model_matrix[0][0]);
+            GLuint has_texture_location = glGetUniformLocation(shader_id, "has_texture");
+            if (this->models[model_id]->texture != 0) {
+                glUniform1i(has_texture_location, 1);
+                GLuint diffuseTexture_location = glGetUniformLocation(this->scene_shader, "diffuseTexture");
+                glUniform1i(diffuseTexture_location, 1);
+            } else {
+                glUniform1i(has_texture_location, 0);
+            }
         }
 
         void renderScene() {
@@ -165,6 +173,10 @@ class Render {
             glBindTexture(GL_TEXTURE_2D, this->depthmaptexture);
             for (uint model_id = 0; model_id < this->models.size(); model_id++)
             {
+                if (this->models[model_id]->texture != 0) {
+                    glActiveTexture(GL_TEXTURE1);
+                    glBindTexture(GL_TEXTURE_2D, this->models[model_id]->texture);
+                }
                 setSceneUniforms();
                 setModelUniforms(this->scene_shader, model_id);
                 renderModel(model_id);
