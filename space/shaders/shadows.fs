@@ -30,7 +30,7 @@ float ShadowCalculation(vec4 fragPosLightSpace, float bias)
     }
 
     // get closest depth value from light's perspective (using [0,1] range fragPosLight as coords)
-    float closestDepth = texture(shadowMap, projCoords.xy).r; 
+    float closestDepth = texture(shadowMap, projCoords.xy).r;
     // get depth of current fragment from light's perspective
     float currentDepth = projCoords.z;
 
@@ -41,16 +41,16 @@ float ShadowCalculation(vec4 fragPosLightSpace, float bias)
     {
         for(int y = -1; y <= 1; ++y)
         {
-            float pcfDepth = texture(shadowMap, projCoords.xy + vec2(x, y) * texelSize).r; 
-            shadow += currentDepth - bias > pcfDepth ? 1.0 : 0.0;        
-        }    
+            float pcfDepth = texture(shadowMap, projCoords.xy + vec2(x, y) * texelSize).r;
+            shadow += currentDepth - bias > pcfDepth ? 1.0 : 0.0;
+        }
     }
     shadow /= 9.0;
     return shadow;
 }
 
 void main()
-{   
+{
     vec3 color;
     if (has_texture == 1) {
         color = texture(diffuseTexture, fs_in.TexCoords).rgb;
@@ -60,7 +60,7 @@ void main()
     vec3 normal = normalize(fs_in.Normal);
     vec3 lightColor = vec3(0.3);
     // ambient
-    vec3 ambient = 0.3 * color;
+    vec3 ambient = 0.6 * color;
     // diffuse
     //vec3 lightDirection = normalize(lightPosition - fs_in.FragPos); // To shade as a point light
     vec3 lightDirection = normalize(lightPosition); // To shade as global illumination
@@ -70,15 +70,15 @@ void main()
     vec3 viewDir = normalize(viewPosition - fs_in.FragPos);
     vec3 reflectDir = reflect(-lightDirection, normal);
     float spec = 0.0;
-    vec3 halfwayDir = normalize(lightDirection + viewDir);  
+    vec3 halfwayDir = normalize(lightDirection + viewDir);
     spec = pow(max(dot(normal, halfwayDir), 0.0), 64.0);
-    vec3 specular = spec * lightColor;    
+    vec3 specular = spec * lightColor;
     // calculate shadow
     float shadowBias = max(0.05 * (1.0 - dot(normal, lightDirection)), 0.000); // Hack to cure shadow acne
     shadowBias = 0.004;
-    float shadow = ShadowCalculation(fs_in.FragPosLightSpace, shadowBias);                      
-    vec3 lighting = (ambient + (1.0 - shadow) * (diffuse )) * color;    
-    
+    float shadow = ShadowCalculation(fs_in.FragPosLightSpace, shadowBias);
+    vec3 lighting = (ambient + (1.0 - shadow) * (diffuse )) * color;
+
     FragColor = vec4(lighting, 1.0);
     if (shadow == 1) {
         //FragColor = vec4(1,0,0,1);

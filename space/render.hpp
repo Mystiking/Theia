@@ -38,6 +38,10 @@ class Render {
         std::vector<GLuint> uvbuffers;
         std::vector<GLuint> normalbuffers;
         std::vector<GLuint> elementbuffers;
+        // IK buffers
+        std::vector<GLuint> boneidbuffers;
+        std::vector<GLuint> boneweightbuffers;
+
         GLuint quad_vao = 0;
         GLuint quad_vbo;
         GLuint depthmapbuffer;
@@ -58,6 +62,8 @@ class Render {
             this->uvbuffers.resize(models.size());
             this->normalbuffers.resize(models.size());
             this->elementbuffers.resize(models.size());
+            this->boneidbuffers.resize(models.size());
+            this->boneweightbuffers.resize(models.size());
             for (uint i = 0; i < models.size(); i++)
             {
                 this->initialized.push_back(false);
@@ -85,7 +91,7 @@ class Render {
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
             float borderColor[] = { 1.0f, 1.0f, 1.0f, 1.0f };
-            glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor); 
+            glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
             // attach depth texture as FBO's depth buffer
             glBindFramebuffer(GL_FRAMEBUFFER, this->depthmapbuffer);
             glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, this->depthmaptexture, 0);
@@ -181,7 +187,7 @@ class Render {
                 setModelUniforms(this->scene_shader, model_id);
                 renderModel(model_id);
             }
-            
+
             // (Optional) Step 3: Render depth map to quad for visual debugging
             glUseProgram(this->quad_shader);
             setQuadUniforms();
@@ -243,13 +249,45 @@ class Render {
                     (void*)0            // array buffer offset
                 );
 
+                if ((this->models[model_id]->bone_ids.size() != 0) && (this->models[model_id]->bone_weights.size() != 0)) {
+
+                    glGenBuffers(1, &this->boneidbuffers[model_id]);
+                    glBindBuffer(GL_ARRAY_BUFFER, this->boneidbuffers[model_id]);
+                    glBufferData(GL_ARRAY_BUFFER, this->models[model_id]->bone_ids.size() * sizeof(glm::ivec3), &this->models[model_id]->bone_ids[0], GL_STATIC_DRAW);
+
+                    glEnableVertexAttribArray(3);
+                    glVertexAttribPointer(
+                        3,                  // attribute
+                        3,                  // size
+                        GL_INT,           // type
+                        GL_FALSE,           // normalized?
+                        0,                  // stride
+                        (void*)0            // array buffer offset
+                    );
+
+                    glGenBuffers(1, &this->boneweightbuffers[model_id]);
+                    glBindBuffer(GL_ARRAY_BUFFER, this->boneweightbuffers[model_id]);
+                    glBufferData(GL_ARRAY_BUFFER, this->models[model_id]->bone_weights.size() * sizeof(glm::vec3), &this->models[model_id]->bone_weights[0], GL_STATIC_DRAW);
+
+                    glEnableVertexAttribArray(4);
+                    glVertexAttribPointer(
+                        4,                  // attribute
+                        3,                  // size
+                        GL_FLOAT,           // type
+                        GL_FALSE,           // normalized?
+                        0,                  // stride
+                        (void*)0            // array buffer offset
+                    );
+                }
+
                 glGenBuffers(1, &this->elementbuffers[model_id]);
                 glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->elementbuffers[model_id]);
                 glBufferData(GL_ELEMENT_ARRAY_BUFFER, this->models[model_id]->indices.size() * sizeof(unsigned short), &this->models[model_id]->indices[0] , GL_STATIC_DRAW);
-                
+
                 glBindBuffer(GL_ARRAY_BUFFER, 0);
                 glBindVertexArray(0);
                 glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
 
                 this->initialized[model_id] = true;
             }
