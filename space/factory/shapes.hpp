@@ -17,12 +17,15 @@
 #include <map>
 #include <algorithm>
 
-std::vector<glm::vec3> computeNormals(std::vector<glm::vec3> vertices, std::vector<unsigned short> faces) {
+std::vector<glm::vec3> computeNormals(
+    std::vector<glm::vec3> vertices,
+    std::vector<unsigned short> faces
+) {
     std::vector<glm::vec3> normals;
-    for (int vi = 0; vi < vertices.size(); vi++) {
+    for (unsigned int vi = 0; vi < vertices.size(); vi++) {
         normals.push_back(glm::vec3(0.0f, 0.0f, 0.0f));
         float count = 0.0f;
-        for (int fi = 0; fi < faces.size(); fi+=3) {
+        for (unsigned int fi = 0; fi < faces.size(); fi+=3) {
             for (int i = 0; i < 3; i++) {
                 if (faces[fi+i] == vi) {
                     glm::vec3 U = vertices[faces[fi+2]] - vertices[faces[fi+0]];
@@ -38,7 +41,10 @@ std::vector<glm::vec3> computeNormals(std::vector<glm::vec3> vertices, std::vect
     return normals;
 }
 
-Model plane(float width, float depth) {
+Model plane(
+    float width,
+    float depth
+) {
     float x = width / 2.0f;
     float z = depth / 2.0f;
 
@@ -63,10 +69,10 @@ Model plane(float width, float depth) {
     };
 
     std::vector<glm::vec3> normals;
-    for (int vi = 0; vi < vertices.size(); vi++) {
+    for (unsigned int vi = 0; vi < vertices.size(); vi++) {
         normals.push_back(glm::vec3(0.0f, 0.0f, 0.0f));
         float count = 0.0f;
-        for (int fi = 0; fi < faces.size(); fi+=3) {
+        for (unsigned int fi = 0; fi < faces.size(); fi+=3) {
             for (int i = 0; i < 3; i++) {
                 if (faces[fi+i] == vi) {
                     glm::vec3 U = vertices[faces[fi+2]] - vertices[faces[fi+0]];
@@ -88,7 +94,11 @@ Model plane(float width, float depth) {
     return model;
 }
 
-Model cube(float width, float height, float depth) {
+Model cube(
+    float width,
+    float height,
+    float depth
+) {
     float x = width / 2.0f;
     float y = height / 2.0f;
     float z = depth / 2.0f;
@@ -136,7 +146,9 @@ Model cube(float width, float height, float depth) {
 
 
 // Probably the worst texture unwrapper in existance
-void unwrap(Model* model) {
+void unwrap(
+    Model* model
+) {
     std::vector<glm::vec3> unwrapped_vertices;
     std::vector<unsigned short> unwrapped_faces;
     std::vector<glm::vec2> uvs;
@@ -198,9 +210,9 @@ void refine_model(Model* model, int num_subdivisions = 1) {
 
 
     glm::vec3 v, u, w, t;
-    for (uint _ = 0; _ < num_subdivisions; _++)
+    for (int _ = 0; _ < num_subdivisions; _++)
     {
-        for (uint i = 0; i < model->indices.size(); i+=3)
+        for (unsigned int i = 0; i < model->indices.size(); i+=3)
         {
             v = model->vertices[model->indices[i]];
             u = model->vertices[model->indices[i+1]];
@@ -240,9 +252,9 @@ void subdivide_cube(Model* model, int num_subdivisions) {
 
     glm::vec3 v, u, w, t;
     float e0, e1, e2; // Lengths of the edges E0: v -> u, E1: u -> w, E2: w -> v
-    for (uint _ = 0; _ < num_subdivisions; _++)
+    for (int _ = 0; _ < num_subdivisions; _++)
     {
-        for (uint i = 0; i < model->indices.size(); i+=3)
+        for (unsigned int i = 0; i < model->indices.size(); i+=3)
         {
             v = model->vertices[model->indices[i]];
             u = model->vertices[model->indices[i+1]];
