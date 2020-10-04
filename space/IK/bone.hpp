@@ -9,7 +9,7 @@
 
 class Bone {
     public:
-        int index;                       // Bone index
+        int index = -1;                  // Bone index
         glm::quat q_wcs;                 // Joint frame orientation in World Coordinate Space
         glm::vec3 t_wcs;                 // Joint origin in World Coordinate Space
         glm::vec3 t = glm::vec3(0.0f);   // Joint vector in parent frame
@@ -20,6 +20,10 @@ class Bone {
         float alpha = 0.0f;              // Euler angles of bone
         float beta = 0.0f;               // Euler angles of bone
         float gamma = 0.0f;              // Euler angles of bone
+
+        Bone() {
+            children.resize(0);
+        }
 
         bool is_root() {
             return (this->parent == -1);
@@ -43,6 +47,7 @@ class Bone {
             if (this->euler_code[idx] == 'Z') {
                 return glm::vec3(0.0f, 0.0f, 1.0f);
             }
+            return glm::vec3(0.0f, 0.0f, 0.0f);
         }
 
         glm::quat get_rotation(int idx, float radians) {
@@ -57,6 +62,7 @@ class Bone {
             if (this->euler_code[idx] == 'Z') {
                 return glm::quat(c, 0.0f, 0.0f, s);
             }
+            return glm::quat(0.0f, 0.0f, 0.0f, 0.0f);
         }
 
         glm::vec3 get_axis_alpha() {

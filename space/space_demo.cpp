@@ -26,7 +26,7 @@
 
 #ifndef IKINCLUDE
 #define IKINCLUDE
-#include "IK/builder.hpp"
+#include "IK/skeleton.hpp"
 #endif
 
 #include "animations/skinning.hpp"
@@ -173,22 +173,52 @@ int main() {
     //Render render(window, {&cube_0, &cube_1, &plane_}, d_shader, q_shader, model_shader, SCREENWIDTH, SCREENHEIGHT);
     //std::cout << "!!!\n";
     Render render(window, {&cube_1, &cube_0, &plane_}, d_shader, q_shader, model_shader, SCREENWIDTH, SCREENHEIGHT);
+    //Render render(window, {&cube_1}, d_shader, q_shader, model_shader, SCREENWIDTH, SCREENHEIGHT);
     //Render render(window, {&sdf_generated_cube}, d_shader, q_shader, model_shader, SCREENWIDTH, SCREENHEIGHT);
     //IK Stuff
-    Skeleton skeleton;
-    Bone b0 = Builder::create_root(skeleton,
+    Skeleton skeleton;// = new Skeleton();
+    skeleton.add_root(glm::radians(45.0f),
+                      0.0f,
+                      0.0f,
+                      0.0f,
+                      0.0f,
+                      0.0f);
+    /*
+    Bone *b0 = Builder::create_root(*skeleton,
                                    glm::radians(90.0f),
                                    0.0f,
                                    0.0f,
                                    1.0f,
                                    0.0f,
                                    0.0f);
-    Bone b1 = Builder::add_bone(skeleton, b0.index, glm::radians(90.0f), 0.0, 0.0, 1.0, 0.0, 0.0);
-    Bone b2 = Builder::add_bone(skeleton, b1.index, glm::radians(-90.0f), 0.0, 0.0, 1.0, 0.0, 0.0);
+    */
+    std::cout << skeleton.bones[0].index << "\n";
+    skeleton.add_bone(0, glm::radians(90.0f), 0.0, 0.0, 1.0, 0.0, 0.0);
+    std::cout << skeleton.bones[1].index << "\n";
+    skeleton.add_bone(1, glm::radians(-90.0f), 0.0, 0.0, 1.0, 0.0, 0.0);
+    std::cout << skeleton.bones[2].index << "\n";
+
+    skeleton.print();
+    skeleton.update();
+    //skeleton.create_bone_transforms();
+    skeleton.print();
+
+    std::cout << "Using bone transforms\n";
+    Bone b1 = skeleton.bones[2];
+    std::cout << "Origin (pre-update)    : (" << b1.t.x << ", " << b1.t.y << ", " << b1.t.z << ")\n";
+    std::cout << "Origin (post-update)   : (" << b1.t_wcs.x << ", " << b1.t_wcs.y << ", " << b1.t_wcs.z << ")\n";
+    glm::vec3 b1t = glm::vec3(skeleton.bonetransforms[2] * glm::vec4(b1.t.x, b1.t.y, b1.t.z, 1.0));
+    std::cout << "Origin (post-transform): (" << b1t.x << ", " << b1t.y << ", " << b1t.z << ")\n";
+
+    //Bone b1 = Builder::add_bone(skeleton, b0.index, glm::radians(90.0f), 0.0, 0.0, 1.0, 0.0, 0.0);
+    //Bone *b2 = Builder::add_bone(skeleton, b1->index, glm::radians(-90.0f), 0.0, 0.0, 1.0, 0.0, 0.0);
+    /*
+    */
 
 
     // Print using transformation matrix instead
     // Bone b0
+    /*
     b0.t_wcs = b0.t;
     std::cout << "Bone index : " << b0.index << " " <<
                  "Origin : (" << b0.t_wcs.x << ", " << b0.t_wcs.y << ", " << b0.t_wcs.z << ")\n";
@@ -213,10 +243,10 @@ int main() {
     std::cout << "Bone index : " << b2.index << " " <<
                  "Origin : (" << b2.t_wcs.x << ", " << b2.t_wcs.y << ", " << b2.t_wcs.z << ")\n";
 
-
-    Builder::update_skeleton(skeleton);
-    Builder::print_skeleton(skeleton);
+    Builder::update_skeleton(*skeleton);
+    Builder::print_skeleton(*skeleton);
     std::cout << "\n\n";
+    */
 
 
     /*
@@ -227,7 +257,15 @@ int main() {
     Builder::print_skeleton(skeleton);
     std::cout << "\n\n";
     */
+    //cube_0.skeleton = skeleton;
+    //cube_0.has_skeleton = true;
     skin_mesh(cube_0, skeleton);
+    cube_0.skeleton = skeleton;
+    cube_1.skeleton = skeleton;
+    plane_.skeleton = skeleton;
+    cube_1.has_skeleton = true;
+    //cube_0.has_skeleton = true;
+    //plane_.has_skeleton = true;
 
     //exit(0);
 
@@ -250,10 +288,18 @@ int main() {
          */
         // Step 1: Move camera
         first_person_camera(window);
+
         // Step 2: Update animations
         // TODO: Add animations
 
-        // Step 3: Render scene
+        // Step 3: Update all bonetransforms
+        for (Model *model : render.models) {
+            if (model->has_skeleton) {
+                model->skeleton.update();
+            }
+        }
+
+        // Step 4: Render scene
         render.renderScene();
     }
     while(glfwGetKey(window, GLFW_KEY_ESCAPE) != GLFW_PRESS &&

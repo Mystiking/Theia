@@ -147,6 +147,16 @@ class Render {
             } else {
                 glUniform1i(has_texture_location, 0);
             }
+            // Set skeleton if it exists
+            GLuint is_animated_location = glGetUniformLocation(shader_id, "is_animated");
+            if (this->models[model_id]->has_skeleton) {
+                glUniform1i(is_animated_location, 1);
+                GLuint bone_transforms_location = glGetUniformLocation(this->scene_shader, "bone_transforms");
+                // TODO: Compute bone transforms and send them to the shader
+                glUniformMatrix4fv(bone_transforms_location, this->models[model_id]->skeleton.max_bones, GL_FALSE, &this->models[model_id]->skeleton.bonetransforms[0][0][0]);
+            } else {
+                glUniform1i(is_animated_location, 0);
+            }
         }
 
         void renderScene() {
@@ -250,6 +260,7 @@ class Render {
                 );
 
                 if ((this->models[model_id]->bone_ids.size() != 0) && (this->models[model_id]->bone_weights.size() != 0)) {
+                    std::cout << "Adding bone stuff\n";
 
                     glGenBuffers(1, &this->boneidbuffers[model_id]);
                     glBindBuffer(GL_ARRAY_BUFFER, this->boneidbuffers[model_id]);

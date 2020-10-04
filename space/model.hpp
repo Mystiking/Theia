@@ -12,7 +12,7 @@
 
 #ifndef IKINCLUDE
 #define IKINCLUDE
-#include "IK/builder.hpp"
+#include "IK/skeleton.hpp"
 #endif
 
 
@@ -31,6 +31,7 @@ class Model {
         std::vector<glm::vec3> normals;
 
         Skeleton skeleton;
+        bool has_skeleton = false;
 
         glm::mat4 model_matrix;
 

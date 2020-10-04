@@ -12,7 +12,7 @@
 
 class Builder {
     public:
-        static Bone create_root(
+        static Bone* create_root(
             Skeleton & skeleton,
             float alpha,
             float beta,
@@ -22,15 +22,20 @@ class Builder {
             float tz,
             std::string euler_code = "ZYZ"
         ) {
+            /*
             Bone root;
             root.t = glm::vec3(tx, ty, tz);
             root.alpha = alpha;
             root.beta = beta;
             root.gamma = gamma;
             root.euler_code = euler_code;
-            skeleton.bones.push_back(root);
-            return root;
+            root.children = {};
+            */
+            //skeleton.bones.push_back(new Bone());
+            //return root;
+            //return skeleton.bones[0];
         }
+        /*
 
         static Bone add_bone(
             Skeleton & skeleton,
@@ -192,4 +197,5 @@ class Builder {
                 __update_bone(skeleton.bones[bone.children[idx]], skeleton);
             }
         }
+        */
 };
