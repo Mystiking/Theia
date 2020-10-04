@@ -18,433 +18,326 @@
 #define MODELINCLUDE
 #include "model.hpp"
 #endif
-#ifndef ANIMATEDMODELINCLUDE
-#define ANIMATEDMODELINCLUDE
-#include "animated_model.hpp"
-#endif
 #include "shaders.h"
+#include "controls.h"
 
 class Render {
     public:
         GLFWwindow *window;
 
         std::vector<Model*> models;
-        std::vector<AnimatedModel*> animated_models;
 
-        std::vector<GLuint> shaders;
+        // Shaders
+        GLuint depth_shader;
+        GLuint quad_shader;
+        GLuint scene_shader;
+        // Buffers
+        std::vector<bool> initialized;
+        std::vector<GLuint> vaos;
+        std::vector<GLuint> vertexbuffers;
+        std::vector<GLuint> uvbuffers;
+        std::vector<GLuint> normalbuffers;
+        std::vector<GLuint> elementbuffers;
+        // IK buffers
+        std::vector<GLuint> boneidbuffers;
+        std::vector<GLuint> boneweightbuffers;
 
-        GLuint VertexArrayID;
-        GLuint framebuffer = 0;
-        GLuint vertexbuffer, uvbuffer, elementbuffer, normalbuffer, quad_vertexbuffer, jointidbuffer, skinningbuffer;
-
-        GLuint renderTexture;
+        GLuint quad_vao = 0;
+        GLuint quad_vbo;
+        GLuint depthmapbuffer;
+        GLuint depthmaptexture;
 
         int screen_width;
         int screen_height;
+        int shadow_width = 1024;
+        int shadow_height = 1024;
 
-        Render(GLFWwindow *window, const char* quad_vertex_shader, const char* quad_fragment_shader, int screen_width, int screen_height) {
-            this->window = window;
-            this->shaders.push_back(LoadShaders(quad_vertex_shader, quad_fragment_shader));
-
-            this->screen_width = screen_width;
-            this->screen_height = screen_height;
-
-            glGenVertexArrays(1, &this->VertexArrayID);
-            glBindVertexArray(this->VertexArrayID);
-
-            glGenBuffers(1, &this->quad_vertexbuffer);
-            glBindBuffer(GL_ARRAY_BUFFER, this->quad_vertexbuffer);
-            glBufferData(GL_ARRAY_BUFFER, sizeof(this->quad_vertex_buffer_data), this->quad_vertex_buffer_data, GL_STATIC_DRAW);
-
-
-            glGenFramebuffers(1, &this->framebuffer);
-            glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
-
-            glGenTextures(1, &this->renderTexture);
-            glBindTexture(GL_TEXTURE_2D, this->renderTexture);
-            glTexImage2D(GL_TEXTURE_2D, 0,GL_DEPTH_COMPONENT24, this->screen_width, this->screen_height, 0,GL_DEPTH_COMPONENT, GL_FLOAT, 0);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-            glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, this->renderTexture, 0);
-            glDrawBuffer(GL_NONE);
-
-        }
-
-        Render(GLFWwindow *window, std::vector<Model*> models, std::vector<AnimatedModel*> animated_models, const char* quad_vertex_shader, const char* quad_fragment_shader, int screen_width, int screen_height) {
+        Render(GLFWwindow *window, std::vector<Model*> models, GLuint depth_shader, GLuint quad_shader, GLuint scene_shader, int screen_width, int screen_height) {
             this->window = window;
 
             this->models = models;
-            this->animated_models = animated_models;
-            this->shaders.push_back(LoadShaders(quad_vertex_shader, quad_fragment_shader));
+
+            this->vaos.resize(models.size());
+            this->vertexbuffers.resize(models.size());
+            this->uvbuffers.resize(models.size());
+            this->normalbuffers.resize(models.size());
+            this->elementbuffers.resize(models.size());
+            this->boneidbuffers.resize(models.size());
+            this->boneweightbuffers.resize(models.size());
+            for (uint i = 0; i < models.size(); i++)
+            {
+                this->initialized.push_back(false);
+            }
+
+
+            this->depth_shader = depth_shader;
+            this->quad_shader = quad_shader;
+            this->scene_shader = scene_shader;
 
             this->screen_width = screen_width;
             this->screen_height = screen_height;
 
-            glGenVertexArrays(1, &this->VertexArrayID);
-            glBindVertexArray(this->VertexArrayID);
-
-            glGenFramebuffers(1, &this->framebuffer);
-            glBindFramebuffer(GL_FRAMEBUFFER, this->framebuffer);
-
-            glGenBuffers(1, &this->quad_vertexbuffer);
-            glBindBuffer(GL_ARRAY_BUFFER, this->quad_vertexbuffer);
-            glBufferData(GL_ARRAY_BUFFER, sizeof(this->quad_vertex_buffer_data), this->quad_vertex_buffer_data, GL_STATIC_DRAW);
-
-            glGenTextures(1, &this->renderTexture);
-            glBindTexture(GL_TEXTURE_2D, this->renderTexture);
-            glTexImage2D(GL_TEXTURE_2D, 0,GL_DEPTH_COMPONENT24, this->screen_width, this->screen_height, 0,GL_DEPTH_COMPONENT, GL_FLOAT, 0);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+            // configure depth map FBO
+            // -----------------------
+            glGenFramebuffers(1, &this->depthmapbuffer);
+            // create depth texture
+            glGenTextures(1, &this->depthmaptexture);
+            glBindTexture(GL_TEXTURE_2D, this->depthmaptexture);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, this->shadow_width, this->shadow_height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-            glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, this->renderTexture, 0);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+            float borderColor[] = { 1.0f, 1.0f, 1.0f, 1.0f };
+            glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
+            // attach depth texture as FBO's depth buffer
+            glBindFramebuffer(GL_FRAMEBUFFER, this->depthmapbuffer);
+            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, this->depthmaptexture, 0);
             glDrawBuffer(GL_NONE);
-        }
-
-        void add_shader(const char* vertex_shader, const char* fragment_shader) {
-            this->shaders.push_back(LoadShaders(vertex_shader, fragment_shader));
-        }
-
-        void add_shader(GLuint shader_id) {
-            this->shaders.push_back(shader_id);
-        }
-
-        void clean_up() {
-            glDeleteBuffers(1, &this->vertexbuffer);
-            glDeleteBuffers(1, &this->uvbuffer);
-            glDeleteBuffers(1, &this->normalbuffer);
-            glDeleteBuffers(1, &this->elementbuffer);
-            for (Model* model : this->models) {
-                glDeleteTextures(1, &model->texture);
-            }
-            glDeleteTextures(1, &renderTexture);
-            for (GLuint shader_id : this->shaders) {
-                glDeleteProgram(shader_id);
-            }
-            glDeleteVertexArrays(1, &this->VertexArrayID);
-        }
-
-
-        void init(int model_id) {
-            glGenBuffers(1, &this->vertexbuffer);
-            glBindBuffer(GL_ARRAY_BUFFER, this->vertexbuffer);
-            glBufferData(GL_ARRAY_BUFFER, this->models[model_id]->vertices.size() * sizeof(glm::vec3), &this->models[model_id]->vertices[0], GL_STATIC_DRAW);
-
-            glGenBuffers(1, &this->uvbuffer);
-            glBindBuffer(GL_ARRAY_BUFFER, this->uvbuffer);
-            glBufferData(GL_ARRAY_BUFFER, this->models[model_id]->uvs.size() * sizeof(glm::vec2), &this->models[model_id]->uvs[0], GL_STATIC_DRAW);
-
-            glGenBuffers(1, &this->normalbuffer);
-            glBindBuffer(GL_ARRAY_BUFFER, this->normalbuffer);
-            glBufferData(GL_ARRAY_BUFFER, this->models[model_id]->normals.size() * sizeof(glm::vec3), &this->models[model_id]->normals[0], GL_STATIC_DRAW);
-
-            glGenBuffers(1, &this->elementbuffer);
-            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->elementbuffer);
-            glBufferData(GL_ELEMENT_ARRAY_BUFFER, this->models[model_id]->indices.size() * sizeof(unsigned short), &this->models[model_id]->indices[0] , GL_STATIC_DRAW);
-        }
-
-        void init_animated(int model_id) {
-            glGenBuffers(1, &this->vertexbuffer);
-            glBindBuffer(GL_ARRAY_BUFFER, this->vertexbuffer);
-            glBufferData(GL_ARRAY_BUFFER, this->animated_models[model_id]->vertices.size() * sizeof(glm::vec3), &this->animated_models[model_id]->vertices[0], GL_STATIC_DRAW);
-
-            glGenBuffers(1, &this->uvbuffer);
-            glBindBuffer(GL_ARRAY_BUFFER, this->uvbuffer);
-            glBufferData(GL_ARRAY_BUFFER, this->animated_models[model_id]->uvs.size() * sizeof(glm::vec2), &this->animated_models[model_id]->uvs[0], GL_STATIC_DRAW);
-
-            glGenBuffers(1, &this->normalbuffer);
-            glBindBuffer(GL_ARRAY_BUFFER, this->normalbuffer);
-            glBufferData(GL_ARRAY_BUFFER, this->animated_models[model_id]->normals.size() * sizeof(glm::vec3), &this->animated_models[model_id]->normals[0], GL_STATIC_DRAW);
-
-            glGenBuffers(1, &this->jointidbuffer);
-            glBindBuffer(GL_ARRAY_BUFFER, this->jointidbuffer);
-            glBufferData(GL_ARRAY_BUFFER, this->animated_models[model_id]->joint_ids.size() * sizeof(glm::ivec3), &this->animated_models[model_id]->joint_ids[0], GL_STATIC_DRAW);
-
-            glGenBuffers(1, &this->skinningbuffer);
-            glBindBuffer(GL_ARRAY_BUFFER, this->skinningbuffer);
-            glBufferData(GL_ARRAY_BUFFER, this->animated_models[model_id]->skinning_weights.size() * sizeof(glm::vec3), &this->animated_models[model_id]->skinning_weights[0], GL_STATIC_DRAW);
-
-            glGenBuffers(1, &this->elementbuffer);
-            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->elementbuffer);
-            glBufferData(GL_ELEMENT_ARRAY_BUFFER, this->animated_models[model_id]->indices.size() * sizeof(unsigned short), &this->animated_models[model_id]->indices[0] , GL_STATIC_DRAW);
-        }
-
-        void draw(glm::mat4 projection, glm::mat4 view, glm::vec3 light) {
+            glReadBuffer(GL_NONE);
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        }
 
-            glViewport(0,0,this->screen_width,this->screen_height);
-            glEnable(GL_CULL_FACE);
-            glCullFace(GL_BACK); // Cull back-facing triangles -> draw only front-facing triangles
-            // Clear the screen
-            glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-            // Draw everything to the frame buffer
-            for (int i = 0; i < (int)this->models.size(); i++) {
-                this->draw_model(i, projection, view, light);
+        void setDepthUniforms(uint model_id) {
+            GLuint lightSpaceMatrix_location = glGetUniformLocation(this->depth_shader, "lightSpaceMatrix");
+            //GLuint model_location = glGetUniformLocation(this->depth_shader, "model");
+            glUniformMatrix4fv(lightSpaceMatrix_location, 1, GL_FALSE, &lightSpaceMatrix[0][0]);
+            //glUniformMatrix4fv(model_location, 1, GL_FALSE, &this->models[model_id]->model_matrix[0][0]);
+        }
+
+        void setQuadUniforms() {
+            GLuint depthMap_location = glGetUniformLocation(this->depth_shader, "depthMap");
+            GLuint near_location = glGetUniformLocation(this->depth_shader, "nearPlane");
+            GLuint far_location = glGetUniformLocation(this->depth_shader, "farPlane");
+            glUniform1i(depthMap_location, 0);
+            glUniform1f(near_location, near);
+            glUniform1f(far_location, far);
+        }
+
+        void setSceneUniforms() {
+            GLuint shadowMap_location = glGetUniformLocation(this->scene_shader, "shadowMap");
+            GLuint projection_location = glGetUniformLocation(this->scene_shader, "projection");
+            GLuint view_location = glGetUniformLocation(this->scene_shader, "view");
+            GLuint lightSpaceMatrix_location = glGetUniformLocation(this->scene_shader, "lightSpaceMatrix");
+            GLuint viewPosition_location = glGetUniformLocation(this->scene_shader, "viewPosition");
+            GLuint lightPosition_location = glGetUniformLocation(this->scene_shader, "lightPosition");
+            GLuint near_location = glGetUniformLocation(this->depth_shader, "nearPlane");
+            GLuint far_location = glGetUniformLocation(this->depth_shader, "farPlane");
+
+            glUniform1i(shadowMap_location, 0);
+            glUniformMatrix4fv(projection_location, 1, GL_FALSE, &projection[0][0]);
+            glUniformMatrix4fv(view_location, 1, GL_FALSE, &view[0][0]);
+            glUniformMatrix4fv(lightSpaceMatrix_location, 1, GL_FALSE, &lightSpaceMatrix[0][0]);
+            glUniform3fv(viewPosition_location, 1, &camera_position[0]);
+            glUniform3fv(lightPosition_location, 1, &lightPosition[0]);
+            glUniform1f(near_location, near);
+            glUniform1f(far_location, far);
+        }
+
+        void setModelUniforms(GLuint shader_id, uint model_id) {
+            GLuint model_location = glGetUniformLocation(shader_id, "model");
+            glUniformMatrix4fv(model_location, 1, GL_FALSE, &this->models[model_id]->model_matrix[0][0]);
+            GLuint has_texture_location = glGetUniformLocation(shader_id, "has_texture");
+            if (this->models[model_id]->texture != 0) {
+                glUniform1i(has_texture_location, 1);
+                GLuint diffuseTexture_location = glGetUniformLocation(this->scene_shader, "diffuseTexture");
+                glUniform1i(diffuseTexture_location, 1);
+            } else {
+                glUniform1i(has_texture_location, 0);
             }
-            for (int i = 0; i < (int)this->animated_models.size(); i++) {
-                this->draw_animated_model(i, projection, view, light);
+            // Set skeleton if it exists
+            GLuint is_animated_location = glGetUniformLocation(shader_id, "is_animated");
+            if (this->models[model_id]->has_skeleton) {
+                glUniform1i(is_animated_location, 1);
+                GLuint bone_transforms_location = glGetUniformLocation(this->scene_shader, "bone_transforms");
+                glUniformMatrix4fv(bone_transforms_location, this->models[model_id]->skeleton.max_bones, GL_FALSE, &this->models[model_id]->skeleton.bonetransforms[0][0][0]);
+            } else {
+                glUniform1i(is_animated_location, 0);
             }
-            // Draw everything to the screen
-            glViewport(0, 0,this->screen_width,this->screen_height);
-            // Use the quad program shaders
-            glUseProgram(this->shaders[0]);
-            // Bind our texture in Texture Unit 0
+        }
+
+        void renderScene() {
+            glClearColor(0.133f, 0.133f, 0.133f, 0.0f);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+            // Step 1: Render depth map
+            glUseProgram(this->depth_shader);
+            glViewport(0, 0, this->shadow_width, this->shadow_height);
+            glBindFramebuffer(GL_FRAMEBUFFER, this->depthmapbuffer);
+            glClear(GL_DEPTH_BUFFER_BIT);
+            glCullFace(GL_FRONT);
+            for (uint model_id = 0; model_id < this->models.size(); model_id++)
+            {
+                setDepthUniforms(model_id);
+                setModelUniforms(this->depth_shader, model_id);
+                renderModel(model_id);
+            }
+            glCullFace(GL_BACK);
+
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+            // Reset viewport
+            glViewport(0, 0, this->screen_width, this->screen_height);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            // Step 2: Render the scene as normal
+            glViewport(0, 0, this->screen_width, this->screen_height);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            glUseProgram(this->scene_shader);
             glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, this->renderTexture);
-            // Set our "renderedTexture" sampler to use Texture Unit 0
-            GLuint quad_texture_sample_id = glGetUniformLocation(this->shaders[0], "renderedTexture");
-            glUniform1i(quad_texture_sample_id, 0);
+            glBindTexture(GL_TEXTURE_2D, this->depthmaptexture);
+            for (uint model_id = 0; model_id < this->models.size(); model_id++)
+            {
+                if (this->models[model_id]->texture != 0) {
+                    glActiveTexture(GL_TEXTURE1);
+                    glBindTexture(GL_TEXTURE_2D, this->models[model_id]->texture);
+                }
+                setSceneUniforms();
+                setModelUniforms(this->scene_shader, model_id);
+                renderModel(model_id);
+            }
 
-            // 1rst attribute buffer : vertices
-            glEnableVertexAttribArray(0);
-            glBindBuffer(GL_ARRAY_BUFFER, this->quad_vertexbuffer);
-            glVertexAttribPointer(
-                0,                  // attribute 0. No particular reason for 0, but must match the layout in the shader.
-                3,                  // size
-                GL_FLOAT,           // type
-                GL_FALSE,           // normalized?
-                0,                  // stride
-                (void*)0            // array buffer offset
-            );
+            // (Optional) Step 3: Render depth map to quad for visual debugging
+            glUseProgram(this->quad_shader);
+            setQuadUniforms();
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, this->depthmaptexture);
+            //renderQuad();
 
-            glDisableVertexAttribArray(0);
-            // Swap buffers
             glfwSwapBuffers(this->window);
             glfwPollEvents();
         }
 
-        void draw_model(int model_id, glm::mat4 projection, glm::mat4 view, glm::vec3 light) {
-            // Bind buffers
-            this->init(model_id);
-            // Enable the correct GLSL program
-            glUseProgram(this->models[model_id]->shader_id);
-            // Get handles for transform matrices
-            GLuint mvp_matrix_id   = glGetUniformLocation(this->models[model_id]->shader_id, "MVP");
-            GLuint view_matrix_id  = glGetUniformLocation(this->models[model_id]->shader_id, "V");
-            GLuint model_matrix_id = glGetUniformLocation(this->models[model_id]->shader_id, "M");
-            // Get handle for light position
-            GLuint light_id = glGetUniformLocation(this->models[model_id]->shader_id, "LightPosition");
-            // Get handle for texture sampler
-            GLuint texture_sample_id = glGetUniformLocation(this->models[model_id]->shader_id, "TextureSampler");
-            // Compute projection matrix
-            glm::mat4 mvp = projection * view * this->models[model_id]->model_matrix;
-            // Sent the transformation matrices to the shader
-            glUniformMatrix4fv(mvp_matrix_id, 1, GL_FALSE, &mvp[0][0]);
-            glUniformMatrix4fv(view_matrix_id, 1, GL_FALSE, &view[0][0]);
-            glUniformMatrix4fv(model_matrix_id, 1, GL_FALSE, &this->models[model_id]->model_matrix[0][0]);
-            // Sent light position to the shader
-            glUniform3f(light_id, light.x, light.y, light.z);
-            // Activate appropriate texture
-            glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, this->models[model_id]->texture);
-            glUniform1i(texture_sample_id, 0);
+        void renderModel(uint model_id) {
+            if (!this->initialized[model_id]) {
+                // Initialize buffers
+                glGenVertexArrays(1, &this->vaos[model_id]);
 
-            // 1rst attribute: vertex positions
-            glEnableVertexAttribArray(0);
-            glBindBuffer(GL_ARRAY_BUFFER, this->vertexbuffer);
-            glVertexAttribPointer(
-                0,                  // attribute
-                3,                  // size
-                GL_FLOAT,           // type
-                GL_FALSE,           // normalized?
-                0,                  // stride
-                (void*)0            // array buffer offset
-            );
+                glBindVertexArray(this->vaos[model_id]);
+                // Fill buffers
+                glGenBuffers(1, &this->vertexbuffers[model_id]);
+                glBindBuffer(GL_ARRAY_BUFFER, this->vertexbuffers[model_id]);
+                glBufferData(GL_ARRAY_BUFFER, this->models[model_id]->vertices.size() * sizeof(glm::vec3), &this->models[model_id]->vertices[0], GL_STATIC_DRAW);
 
-            // 2nd attribute buffer : UVs
-            glEnableVertexAttribArray(1);
-            glBindBuffer(GL_ARRAY_BUFFER, this->uvbuffer);
-            glVertexAttribPointer(
-                1,                                // attribute
-                2,                                // size
-                GL_FLOAT,                         // type
-                GL_FALSE,                         // normalized?
-                0,                                // stride
-                (void*)0                          // array buffer offset
-            );
+                glEnableVertexAttribArray(0);
+                glVertexAttribPointer(
+                    0,                  // attribute
+                    3,                  // size
+                    GL_FLOAT,           // type
+                    GL_FALSE,           // normalized?
+                    0,                  // stride
+                    (void*)0            // array buffer offset
+                );
 
-            // 3rd attribute buffer : normals
-            glEnableVertexAttribArray(2);
-            glBindBuffer(GL_ARRAY_BUFFER, this->normalbuffer);
-            glVertexAttribPointer(
-                2,                                // attribute
-                3,                                // size
-                GL_FLOAT,                         // type
-                GL_FALSE,                         // normalized?
-                0,                                // stride
-                (void*)0                          // array buffer offset
-            );
+                glGenBuffers(1, &this->normalbuffers[model_id]);
+                glBindBuffer(GL_ARRAY_BUFFER, this->normalbuffers[model_id]);
+                glBufferData(GL_ARRAY_BUFFER, this->models[model_id]->normals.size() * sizeof(glm::vec3), &this->models[model_id]->normals[0], GL_STATIC_DRAW);
 
-            // Index buffer
-            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->elementbuffer);
+                // 2nd attribute buffer : normals
+                glEnableVertexAttribArray(1);
+                glVertexAttribPointer(
+                    1,                                // attribute
+                    3,                                // size
+                    GL_FLOAT,                         // type
+                    GL_FALSE,                         // normalized?
+                    0,                                // stride
+                    (void*)0                          // array buffer offset
+                );
+
+                glGenBuffers(1, &this->uvbuffers[model_id]);
+                glBindBuffer(GL_ARRAY_BUFFER, this->uvbuffers[model_id]);
+                glBufferData(GL_ARRAY_BUFFER, this->models[model_id]->uvs.size() * sizeof(glm::vec2), &this->models[model_id]->uvs[0], GL_STATIC_DRAW);
+
+                glEnableVertexAttribArray(2);
+                glVertexAttribPointer(
+                    2,                  // attribute
+                    2,                  // size
+                    GL_FLOAT,           // type
+                    GL_FALSE,           // normalized?
+                    0,                  // stride
+                    (void*)0            // array buffer offset
+                );
+
+                if ((this->models[model_id]->bone_ids.size() != 0) && (this->models[model_id]->bone_weights.size() != 0)) {
+                    std::cout << "Adding bone stuff\n";
+
+                    glGenBuffers(1, &this->boneidbuffers[model_id]);
+                    glBindBuffer(GL_ARRAY_BUFFER, this->boneidbuffers[model_id]);
+                    glBufferData(GL_ARRAY_BUFFER, this->models[model_id]->bone_ids.size() * sizeof(glm::ivec3), &this->models[model_id]->bone_ids[0], GL_STATIC_DRAW);
+
+                    glEnableVertexAttribArray(3);
+                    glVertexAttribPointer(
+                        3,                  // attribute
+                        3,                  // size
+                        GL_INT,           // type
+                        GL_FALSE,           // normalized?
+                        0,                  // stride
+                        (void*)0            // array buffer offset
+                    );
+
+                    glGenBuffers(1, &this->boneweightbuffers[model_id]);
+                    glBindBuffer(GL_ARRAY_BUFFER, this->boneweightbuffers[model_id]);
+                    glBufferData(GL_ARRAY_BUFFER, this->models[model_id]->bone_weights.size() * sizeof(glm::vec3), &this->models[model_id]->bone_weights[0], GL_STATIC_DRAW);
+
+                    glEnableVertexAttribArray(4);
+                    glVertexAttribPointer(
+                        4,                  // attribute
+                        3,                  // size
+                        GL_FLOAT,           // type
+                        GL_FALSE,           // normalized?
+                        0,                  // stride
+                        (void*)0            // array buffer offset
+                    );
+                }
+
+                glGenBuffers(1, &this->elementbuffers[model_id]);
+                glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->elementbuffers[model_id]);
+                glBufferData(GL_ELEMENT_ARRAY_BUFFER, this->models[model_id]->indices.size() * sizeof(unsigned short), &this->models[model_id]->indices[0] , GL_STATIC_DRAW);
+
+                glBindBuffer(GL_ARRAY_BUFFER, 0);
+                glBindVertexArray(0);
+                glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+
+                this->initialized[model_id] = true;
+            }
+            // Draw the model
+            glBindVertexArray(this->vaos[model_id]);
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->elementbuffers[model_id]);
             glDrawElements(
                 GL_TRIANGLES,      // mode
                 this->models[model_id]->indices.size(),    // count
                 GL_UNSIGNED_SHORT,   // type
                 (void*)0           // element array buffer offset
             );
-
-            glDisableVertexAttribArray(0);
-            glDisableVertexAttribArray(1);
-            glDisableVertexAttribArray(2);
-
+            glBindBuffer(GL_ARRAY_BUFFER, 0);
+            glBindVertexArray(0);
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
         }
 
-        void print_mat4(glm::mat4 m) {
-            for (int i = 0; i < 4; i++) {
-                for (int j = 0; j < 4; j++) {
-                    std::cout << m[i][j] << " ";
-                }
-                std::cout << "\n";
+        void renderQuad() {
+            if (this->quad_vao == 0) {
+                float quadVertices[] = {
+                    // positions        // texture Coords
+                    -1.0f,  1.0f, 0.0f, 0.0f, 1.0f,
+                    -1.0f, -1.0f, 0.0f, 0.0f, 0.0f,
+                     1.0f,  1.0f, 0.0f, 1.0f, 1.0f,
+                     1.0f, -1.0f, 0.0f, 1.0f, 0.0f,
+                };
+                // setup quad VAO
+                glGenVertexArrays(1, &this->quad_vao);
+                glGenBuffers(1, &this->quad_vbo);
+                glBindVertexArray(this->quad_vao);
+                glBindBuffer(GL_ARRAY_BUFFER, this->quad_vbo);
+                glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), &quadVertices, GL_STATIC_DRAW);
+                glEnableVertexAttribArray(0);
+                glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+                glEnableVertexAttribArray(1);
+                glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
             }
+            glBindVertexArray(this->quad_vao);
+            glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+            glBindVertexArray(0);
         }
 
-        void draw_animated_model(int model_id, glm::mat4 projection, glm::mat4 view, glm::vec3 light) {
-            // Bind buffers
-            this->init_animated(model_id);
-            // Enable the correct GLSL program
-            glUseProgram(this->animated_models[model_id]->shader_id);
-            // Get handles for transform matrices
-            GLuint mvp_matrix_id   = glGetUniformLocation(this->animated_models[model_id]->shader_id, "MVP");
-            GLuint view_matrix_id  = glGetUniformLocation(this->animated_models[model_id]->shader_id, "V");
-            GLuint model_matrix_id = glGetUniformLocation(this->animated_models[model_id]->shader_id, "M");
-            // Get handle for light position
-            GLuint light_id = glGetUniformLocation(this->animated_models[model_id]->shader_id, "LightPosition");
-            // Get handle for texture sampler
-            GLuint texture_sample_id = glGetUniformLocation(this->animated_models[model_id]->shader_id, "TextureSampler");
-            // Get handle of joint transforms
-            GLuint joint_transforms_id = glGetUniformLocation(this->animated_models[model_id]->shader_id, "jointTransforms");
-            // Compute projection matrix
-            glm::mat4 mvp = projection * view * this->animated_models[model_id]->model_matrix;
-            // Sent the transformation matrices to the shader
-            glUniformMatrix4fv(mvp_matrix_id, 1, GL_FALSE, &mvp[0][0]);
-            glUniformMatrix4fv(view_matrix_id, 1, GL_FALSE, &view[0][0]);
-            glUniformMatrix4fv(model_matrix_id, 1, GL_FALSE, &this->animated_models[model_id]->model_matrix[0][0]);
-            // Sent light position to the shader
-            glUniform3f(light_id, light.x, light.y, light.z);
-            // Sent joint transforms to shader
-            std::vector<glm::mat4> joint_transforms = this->animated_models[model_id]->get_joint_transforms();
-            /*
-    std::cout << "# joints = " << this->animated_models[model_id]->joint_count << "\n";
-    std::cout << "(Root) index = " << this->animated_models[model_id]->joint_hierarchy.get_id() << "\n";
-    std::cout << "(Root) name = " << this->animated_models[model_id]->joint_hierarchy.get_name() << "\n";
-    std::cout << "(Root) bind_local_transform =\n";
-    print_mat4(this->animated_models[model_id]->joint_hierarchy.local_bind_transform);
-    std::cout << "(Root) inverse transform =\n";
-    print_mat4(this->animated_models[model_id]->joint_hierarchy.inverse_bind_transform);
-    std::cout << "(root) joint transform =\n";
-    print_mat4(joint_transforms[0]);
-    std::cout << "(Child) index = " << this->animated_models[model_id]->joint_hierarchy.children[0].get_id() << "\n";
-    std::cout << "(Child) name = " << this->animated_models[model_id]->joint_hierarchy.children[0].get_name()<< "\n";
-    std::cout << "(Child) bind_local_transform =\n";
-    print_mat4(this->animated_models[model_id]->joint_hierarchy.children[0].local_bind_transform);
-    std::cout << "(Child) inverse transform =\n";
-    print_mat4(this->animated_models[model_id]->joint_hierarchy.children[0].inverse_bind_transform);
-    std::cout << "(Child) joint transform =\n";
-    print_mat4(joint_transforms[1]);
-    std::cout << "\n";
-    std::cout << "\n";
-    std::cout << "\n";
-            */
-            //print_mat4(root_and_child_transform[0]);
-            //print_mat4(root_and_child_transform[1]);
-            std::vector<glm::mat4> identity_transforms = { glm::mat4(1.0f), glm::mat4(1.0f), glm::mat4(1.0f) } ;
-
-            //glUniformMatrix4fv(joint_transforms_id, this->animated_models[model_id]->joint_count, GL_FALSE, &identity_transforms[0][0][0]);
-            glUniformMatrix4fv(joint_transforms_id, this->animated_models[model_id]->joint_count, GL_FALSE, &joint_transforms[0][0][0]);
-            // Activate appropriate texture
-            glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, this->animated_models[model_id]->texture);
-            glUniform1i(texture_sample_id, 0);
-
-            // 1rst attribute: vertex positions
-            glEnableVertexAttribArray(0);
-            glBindBuffer(GL_ARRAY_BUFFER, this->vertexbuffer);
-            glVertexAttribPointer(
-                0,                  // attribute
-                3,                  // size
-                GL_FLOAT,           // type
-                GL_FALSE,           // normalized?
-                0,                  // stride
-                (void*)0            // array buffer offset
-            );
-
-            // 2nd attribute buffer : UVs
-            glEnableVertexAttribArray(1);
-            glBindBuffer(GL_ARRAY_BUFFER, this->uvbuffer);
-            glVertexAttribPointer(
-                1,                                // attribute
-                2,                                // size
-                GL_FLOAT,                         // type
-                GL_FALSE,                         // normalized?
-                0,                                // stride
-                (void*)0                          // array buffer offset
-            );
-
-            // 3rd attribute buffer : normals
-            glEnableVertexAttribArray(2);
-            glBindBuffer(GL_ARRAY_BUFFER, this->normalbuffer);
-            glVertexAttribPointer(
-                2,                                // attribute
-                3,                                // size
-                GL_FLOAT,                         // type
-                GL_FALSE,                         // normalized?
-                0,                                // stride
-                (void*)0                          // array buffer offset
-            );
-
-            // 4rd attribute buffer : joint indices
-            glEnableVertexAttribArray(3);
-            glBindBuffer(GL_ARRAY_BUFFER, this->jointidbuffer);
-            glVertexAttribIPointer(
-                3,                                // attribute
-                3,                                // size
-                GL_INT,                         // type
-                0,                                // stride
-                (void*)0                          // array buffer offset
-            );
-
-            // 5th attribute buffer : Skinning weights
-            glEnableVertexAttribArray(4);
-            glBindBuffer(GL_ARRAY_BUFFER, this->skinningbuffer);
-            glVertexAttribPointer(
-                4,                                // attribute
-                3,                                // size
-                GL_FLOAT,                         // type
-                GL_FALSE,                         // normalized?
-                0,                                // stride
-                (void*)0                          // array buffer offset
-            );
-
-            // Index buffer
-            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->elementbuffer);
-            glDrawElements(
-                GL_TRIANGLES,      // mode
-                this->animated_models[model_id]->indices.size(),    // count
-                GL_UNSIGNED_SHORT,   // type
-                (void*)0           // element array buffer offset
-            );
-
-            glDisableVertexAttribArray(0);
-            glDisableVertexAttribArray(1);
-            glDisableVertexAttribArray(2);
-            glDisableVertexAttribArray(3);
-            glDisableVertexAttribArray(4);
-
-        }
-
-    private:
-        // The quad's FBO. Used only for visualizing the shadowmap.
-        GLfloat quad_vertex_buffer_data[6*3] = {
-            -1.0f, -1.0f, 0.0f,
-            1.0f, -1.0f, 0.0f,
-            -1.0f,  1.0f, 0.0f,
-            -1.0f,  1.0f, 0.0f,
-            1.0f, -1.0f, 0.0f,
-            1.0f,  1.0f, 0.0f,
-        };
 };

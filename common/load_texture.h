@@ -8,8 +8,10 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 // Image file loading tools
+#ifndef STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
+#endif
 
 GLuint load_texture(const char* imagepath, unsigned int shaderId) {
     GLuint texture;

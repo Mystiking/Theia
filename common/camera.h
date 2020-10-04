@@ -16,7 +16,7 @@
 #define SCREENWIDTH   800//1920//1024
 #define SCREENHEIGHT  600//1080//768
 #define SCREENXCENTER 400//960//512
-#define SCREENYCENTER 300//540//384
+#define SCREENYCENTER 200//540//384
 #define HALFPI 1.57f
 
 // Mouse x and y position
@@ -26,7 +26,8 @@ double mouse_xpos, mouse_ypos, mouse_scroll_dx, mouse_scroll_dy;
 //glm::vec3 initial_camera_position = glm::vec3(10.0f * std::cos(glm::radians(45.0f)),
 //                                              10.0f,
 //                                              10.0f * std::sin(glm::radians(45.0f)));
-glm::vec3 initial_camera_position = glm::vec3(0., 10.0f, 10.);
+//glm::vec3 initial_camera_position = glm::vec3(0., 10.0f, 10.);
+glm::vec3 initial_camera_position = glm::vec3(0., 0.0f, 3.);
 // camera position
 glm::vec3 camera_position = initial_camera_position;
 // What the camera should look at
@@ -71,3 +72,9 @@ glm::mat4 model = glm::mat4(1.0f);
 
 // The Model * View * Projection matrix
 glm::mat4 mvp = projection * view * model;
+
+glm::vec3 lightPosition = glm::vec3(-20, 20, 0);
+
+glm::mat4 lightProjection = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, near, far);
+glm::mat4 lightView = glm::lookAt(lightPosition, glm::vec3(0.0, 0.0, 0.0), up);
+glm::mat4 lightSpaceMatrix = lightProjection * lightView;
